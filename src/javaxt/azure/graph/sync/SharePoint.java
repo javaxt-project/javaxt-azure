@@ -170,6 +170,7 @@ public class SharePoint {
                 }
             }
         }, startDate.getDate(), _interval);
+        console.log("Starting sync at " + startDate.getDate());
 
     }
 
@@ -373,7 +374,21 @@ public class SharePoint {
     private javaxt.io.File downloadFile(javaxt.azure.graph.SharePoint.Item item,
         javaxt.io.Directory localCache) throws Exception {
 
+      //Set local file path
         javaxt.io.File file = new javaxt.io.File(localCache, item.getName());
+
+
+      //Apply filter
+        boolean accept = true;
+        try {
+            accept = accept(file);
+        }
+        catch(Exception e){
+        }
+        if (!accept) return null;
+
+
+      //Download file
         int maxAttempts = 5;
         for (int i=0; i<5; i++){
             try {
@@ -406,6 +421,17 @@ public class SharePoint {
         }
 
         return null;
+    }
+
+
+  //**************************************************************************
+  //** accept
+  //**************************************************************************
+  /** This method is called before a file is downloaded. This method can be
+   *  safely overridden to prevent specific files from being downloaded.
+   */
+    public boolean accept(javaxt.io.File file){
+        return true;
     }
 
 
