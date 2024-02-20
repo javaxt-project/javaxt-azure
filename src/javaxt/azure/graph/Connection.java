@@ -83,7 +83,28 @@ public class Connection {
   //** getResponse
   //**************************************************************************
     public JSONObject getResponse(String url) throws Exception {
-        javaxt.http.Response response = getRequest(url).getResponse();
+        return getResponse(url, null);
+    }
+
+
+  //**************************************************************************
+  //** getResponse
+  //**************************************************************************
+    public JSONObject getResponse(String url, JSONObject payload) throws Exception {
+        return getResponse(url, payload, null);
+    }
+
+
+  //**************************************************************************
+  //** getResponse
+  //**************************************************************************
+    public JSONObject getResponse(String url, JSONObject payload, String method) throws Exception {
+
+        javaxt.http.Request request = getRequest(url);
+        if (method!=null) request.setRequestMethod(method);
+        if (payload!=null) request.write(payload);
+
+        javaxt.http.Response response = request.getResponse();
         JSONObject json = response.getJSONObject();
         int status = response.getStatus();
         if (status==200){
