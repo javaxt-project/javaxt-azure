@@ -21,6 +21,22 @@ public class Node {
         return json.get(key);
     }
 
+    public Set<String> getKeys(){
+        return json.keySet();
+    }
+
+    public javaxt.utils.Date getLastModifiedDate(){
+        return get("lastModifiedDateTime").toDate();
+    }
+
+    public void set(String key, Object val){
+        json.set(key, val);
+    }
+
+    public JSONObject toJson(){
+        return json;
+    }
+
     public String toString(){
         return json.toString(4);
     }
