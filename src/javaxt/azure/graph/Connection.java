@@ -1,5 +1,11 @@
 package javaxt.azure.graph;
 
+import java.util.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import static java.nio.charset.StandardCharsets.*;
+
 import javaxt.json.*;
 import static javaxt.utils.Console.console;
 
@@ -100,13 +106,34 @@ public class Connection {
   //**************************************************************************
     public JSONObject getResponse(String url, JSONObject payload, String method) throws Exception {
 
-        javaxt.http.Request request = getRequest(url);
-        if (method!=null) request.setRequestMethod(method);
-        if (payload!=null) request.write(payload);
 
-        javaxt.http.Response response = request.getResponse();
-        JSONObject json = response.getJSONObject();
-        int status = response.getStatus();
+      //Get request builder
+        HttpRequest.Builder request = getRequest(url);
+
+
+      //Set payload and method as needed
+        if (payload!=null){
+            if (method==null) method = "POST";
+            else method = method.toUpperCase();
+
+            request.header("Content-Type", "application/json;charset=UTF-8");
+            request.method(method, HttpRequest.BodyPublishers.ofByteArray(
+                payload.toString().getBytes(UTF_8))
+            );
+        }
+
+
+      //Get response
+        HttpResponse<String> response = HttpClient.newBuilder()
+        .followRedirects(HttpClient.Redirect.NEVER)
+        .build()
+        .send(request.build(), HttpResponse.BodyHandlers.ofString(UTF_8));
+
+
+
+      //Parse and return response
+        JSONObject json = new JSONObject(response.body());
+        int status = response.statusCode();
         if (status==200){
             return json;
         }
@@ -115,7 +142,9 @@ public class Connection {
             return getResponse(url);
         }
         else{
-            System.out.println(response.toString());
+
+            //console.log(response.headers().map());
+            //System.out.println(response.toString());
             System.out.println(json.toString(4));
             throw new Exception();
         }
@@ -123,9 +152,9 @@ public class Connection {
 
 
   //**************************************************************************
-  //** get
+  //** getRequest
   //**************************************************************************
-    private synchronized javaxt.http.Request getRequest(String url) throws Exception {
+    private synchronized HttpRequest.Builder getRequest(String url) throws Exception {
 
       //Update url as needed
         if (!url.startsWith(graphURL) && !url.startsWith("http")){
@@ -141,10 +170,9 @@ public class Connection {
 
 
       //Execute http request and return response
-        javaxt.http.Request request = new javaxt.http.Request(url);
-        request.setHeader("Authorization", tokenType + " " + accessToken);
-        request.setNumRedirects(0);
-        return request;
+        return HttpRequest.newBuilder()
+        .uri(java.net.URI.create(url))
+        .header("Authorization", tokenType + " " + accessToken);
     }
 
 }
