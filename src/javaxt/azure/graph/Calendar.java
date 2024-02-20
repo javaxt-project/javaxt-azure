@@ -103,6 +103,58 @@ public class Calendar extends Node {
 
 
   //**************************************************************************
+  //** getEvent
+  //**************************************************************************
+    public Event getEvent(String id) throws Exception {
+        String url = getURL() + "/" + id;
+        return new Event(conn.getResponse(url), conn);
+    }
+
+
+  //**************************************************************************
+  //** saveEvent
+  //**************************************************************************
+    public void saveEvent(Event event) throws Exception {
+        String url = getURL();
+        if (event.getID()==null){
+            conn.getResponse(url, event.toJson(), "POST");
+        }
+        else{
+            url += "/" + event.getID();
+            JSONObject json = new JSONObject();
+            for (String k : updatableKeys){
+                json.set(k, event.get(k));
+            }
+            conn.getResponse(url, json, "PATCH");
+        }
+    }
+
+
+  //**************************************************************************
+  //** deleteEvent
+  //**************************************************************************
+    public void deleteEvent(Event event) throws Exception {
+        deleteEvent(event.getID());
+    }
+
+
+  //**************************************************************************
+  //** deleteEvent
+  //**************************************************************************
+    public void deleteEvent(String id) throws Exception {
+        if (id==null) return;
+
+        String url = getURL() + "/" + id;
+        conn.getResponse(url, null, "DELETE");
+    }
+
+
+    private static String[] updatableKeys = new String[]{
+        "subject", "body", "categories", "start", "end", "location"
+    };
+
+
+  //**************************************************************************
   //** Event Class
   //**************************************************************************
   /** Used to represent a calendar event
@@ -116,12 +168,36 @@ public class Calendar extends Node {
             return get("subject").toString();
         }
 
+        public void setSubject(String subject){
+            set("subject", subject);
+        }
+
+        public void set(String key, Object val){
+            for (String k : updatableKeys){
+                if (key.equalsIgnoreCase(k)){
+                    super.set(k, val);
+                    break;
+                }
+            }
+        }
+
         public javaxt.utils.Date getStartDate(){
-            return getDate("start");
+            return getDate("start").clone();
+        }
+
+        public void setStartDate(javaxt.utils.Date date){
+            int duration = (int) getEndDate().compareTo(getStartDate(), "minutes");
+            javaxt.utils.Date endDate = date.clone().add(duration, "minutes");
+            setDate("start", date);
+            setDate("end", endDate);
         }
 
         public javaxt.utils.Date getEndDate(){
-            return getDate("end");
+            return getDate("end").clone();
+        }
+
+        public void setEndDate(javaxt.utils.Date date){
+            setDate("end", date);
         }
 
         private javaxt.utils.Date getDate(String key){
@@ -136,17 +212,27 @@ public class Calendar extends Node {
                 return null;
             }
         }
+
+        private void setDate(String key, javaxt.utils.Date date){
+            JSONObject json = get(key).toJSONObject();
+            json.set("dateTime", date.toISOString());
+            json.set("timeZone", "UTC");
+        }
     }
 
 
   //**************************************************************************
   //** getURL
   //**************************************************************************
+    private String getURL(){
+        return getURL(null);
+    }
+
     private String getURL(LinkedHashMap<String, String> params){
         String calendarID = getID();
         String url = "/users/" + userID + "/calendars/" + calendarID + "/events";
 
-        if (!params.isEmpty()){
+        if (params!=null && !params.isEmpty()){
 
           //Update url
             url += "?";
