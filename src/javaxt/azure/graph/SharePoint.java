@@ -174,8 +174,9 @@ public class SharePoint {
         public boolean download(javaxt.io.File file) throws Exception {
             if (isFolder()) return false;
 
-          //Get date
-            javaxt.utils.Date lastModified = new javaxt.utils.Date(
+          //Get date (parseDate truncates Graph's 7-digit fractional seconds so
+          //the mtime comparison below isn't skewed by up to a few hours)
+            javaxt.utils.Date lastModified = Node.parseDate(
             this.get("fileSystemInfo").get("lastModifiedDateTime").toString());
 
 
