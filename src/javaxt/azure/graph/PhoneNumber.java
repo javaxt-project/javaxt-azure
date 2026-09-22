@@ -15,9 +15,20 @@ package javaxt.azure.graph;
 
 public class PhoneNumber {
 
+  /** Type constant for a business/work phone number.
+   */
     public static final String BUSINESS = "business";
+
+  /** Type constant for a home phone number.
+   */
     public static final String HOME = "home";
+
+  /** Type constant for a mobile phone number.
+   */
     public static final String MOBILE = "mobile";
+    
+  /** Type constant for an uncategorized phone number.
+   */
     public static final String OTHER = "other";
 
     private final String type;
@@ -27,6 +38,8 @@ public class PhoneNumber {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a PhoneNumber with the given type (defaulting to OTHER) and number.
+   */
     public PhoneNumber(String type, String number){
         this.type = (type==null || type.trim().isEmpty()) ? OTHER : type.trim().toLowerCase();
         this.number = (number==null) ? null : number.trim();
@@ -34,9 +47,18 @@ public class PhoneNumber {
 
 
   //**************************************************************************
-  //** getType / getNumber
+  //** getType
   //**************************************************************************
+  /** Returns the type (one of BUSINESS, HOME, MOBILE or OTHER).
+   */
     public String getType(){ return type; }
+
+
+  //**************************************************************************
+  //** getNumber
+  //**************************************************************************
+  /** Returns the phone number, or null.
+   */
     public String getNumber(){ return number; }
 
 
@@ -55,8 +77,11 @@ public class PhoneNumber {
 
 
   //**************************************************************************
-  //** equals / hashCode / toString
+  //** equals
   //**************************************************************************
+  /** Returns true if the given object is a PhoneNumber with the same type and
+   *  digits.
+   */
     public boolean equals(Object obj){
         if (this==obj) return true;
         if (!(obj instanceof PhoneNumber)) return false;
@@ -65,10 +90,22 @@ public class PhoneNumber {
                java.util.Objects.equals(getDigits(), o.getDigits());
     }
 
+
+  //**************************************************************************
+  //** hashCode
+  //**************************************************************************
+  /** Returns a hash code derived from the type and normalized digits.
+   */
     public int hashCode(){
         return java.util.Objects.hash(type, getDigits());
     }
 
+
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns the number in "type: number" form.
+   */
     public String toString(){
         return type + ": " + number;
     }

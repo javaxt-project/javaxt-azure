@@ -16,7 +16,9 @@ import javaxt.json.JSONObject;
 
 public class Attachment {
 
-    public static final int MAX_INLINE_BYTES = 3 * 1024 * 1024;  //3 MB inline limit
+  /** Maximum size (3 MB) for content that can be sent inline as contentBytes.
+   */
+    public static final int MAX_INLINE_BYTES = 3 * 1024 * 1024;
 
     private final JSONObject json;
 
@@ -24,6 +26,8 @@ public class Attachment {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates an Attachment wrapping the given Graph attachment JSON object.
+   */
     public Attachment(JSONObject json){
         this.json = (json==null) ? new JSONObject() : json;
     }
@@ -32,7 +36,8 @@ public class Attachment {
   //**************************************************************************
   //** file
   //**************************************************************************
-  /** Builds a file attachment payload from raw bytes (base64-encoded inline). */
+  /** Builds a file attachment payload from raw bytes (base64-encoded inline).
+   */
     public static Attachment file(String name, String contentType, byte[] bytes){
         JSONObject j = new JSONObject();
         j.set("@odata.type", "#microsoft.graph.fileAttachment");
@@ -44,22 +49,71 @@ public class Attachment {
 
 
   //**************************************************************************
-  //** accessors
+  //** getID
   //**************************************************************************
+  /** Returns the attachment id, or null.
+   */
     public String getID(){ return str("id"); }
+
+
+  //**************************************************************************
+  //** getODataType
+  //**************************************************************************
+  /** Returns the Graph @odata.type of the attachment, or null.
+   */
     public String getODataType(){ return str("@odata.type"); }
+
+
+  //**************************************************************************
+  //** getName
+  //**************************************************************************
+  /** Returns the attachment name (typically the file name), or null.
+   */
     public String getName(){ return str("name"); }
+
+
+  //**************************************************************************
+  //** getContentType
+  //**************************************************************************
+  /** Returns the content (MIME) type, or null.
+   */
     public String getContentType(){ return str("contentType"); }
+
+
+  //**************************************************************************
+  //** getContentID
+  //**************************************************************************
+  /** Returns the content id used to reference inline attachments, or null.
+   */
     public String getContentID(){ return str("contentId"); }
 
+
+  //**************************************************************************
+  //** getSize
+  //**************************************************************************
+  /** Returns the size in bytes, or null if not set.
+   */
     public Integer getSize(){
         return json.get("size").isNull() ? null : json.get("size").toInteger();
     }
 
+
+  //**************************************************************************
+  //** isInline
+  //**************************************************************************
+  /** Returns true if the attachment is marked as inline.
+   */
     public boolean isInline(){
         return !json.get("isInline").isNull() && json.get("isInline").toBoolean();
     }
 
+
+  //**************************************************************************
+  //** isFileAttachment
+  //**************************************************************************
+  /** Returns true if this is a file attachment (as opposed to an item or
+   *  reference attachment).
+   */
     public boolean isFileAttachment(){
         String t = getODataType();
         return t!=null && t.toLowerCase().contains("fileattachment");
@@ -74,16 +128,30 @@ public class Attachment {
    */
     public byte[] getContentBytes(){
         if (json.get("contentBytes").isNull()) return null;
-        try{ return Base64.getDecoder().decode(json.get("contentBytes").toString()); }
-        catch(Exception e){ return null; }
+        try{
+            return Base64.getDecoder().decode(json.get("contentBytes").toString());
+        }
+        catch(Exception e){
+            return null;
+        }
     }
 
 
   //**************************************************************************
   //** toJson
   //**************************************************************************
-    public JSONObject toJson(){ return json; }
+  /** Returns the underlying Graph attachment JSON object.
+   */
+    public JSONObject toJson(){
+        return json;
+    }
 
+
+  //**************************************************************************
+  //** str
+  //**************************************************************************
+  /** Returns the string value for a key, or null.
+   */
     private String str(String key){
         return json.get(key).isNull() ? null : json.get(key).toString();
     }

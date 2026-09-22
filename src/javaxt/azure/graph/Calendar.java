@@ -8,8 +8,7 @@ import javaxt.json.*;
 /**
  *   Represents a Microsoft Graph calendar and the operations on its events.
  *   Range queries use <code>calendarView</code>, so recurring appointments are
- *   returned as expanded occurrences (matching the EWS <code>CalendarView</code>
- *   behaviour the EMR relied on), and all list operations follow
+ *   returned as expanded occurrences, and all list operations follow
  *   <code>@odata.nextLink</code> rather than <code>$skip</code>.
  *
  ******************************************************************************/
@@ -22,6 +21,9 @@ public class Calendar extends Node {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Wraps a Graph calendar JSON payload for the given user id and binds it to
+   *  the connection used for its event operations.
+   */
     public Calendar(JSONObject json, String userID, Connection conn){
         super(json, conn);
         this.userID = userID;
@@ -29,30 +31,60 @@ public class Calendar extends Node {
 
 
   //**************************************************************************
-  //** Metadata
+  //** getName
   //**************************************************************************
+  /** Returns the calendar's display name, or null.
+   */
     public String getName(){
         return get("name").isNull() ? null : get("name").toString();
     }
 
+
+  //**************************************************************************
+  //** isDefaultCalendar
+  //**************************************************************************
+  /** Returns true if this is the user's default calendar.
+   */
     public boolean isDefaultCalendar(){
         return !get("isDefaultCalendar").isNull() && get("isDefaultCalendar").toBoolean();
     }
 
-  /** Retained for backwards compatibility; prefer {@link #isDefaultCalendar()}. */
+
+  //**************************************************************************
+  //** isDefault
+  //**************************************************************************
+  /** Retained for backwards compatibility; prefer {@link #isDefaultCalendar()}.
+   */
     public boolean isDefault(){
         return isDefaultCalendar();
     }
 
+
+  //**************************************************************************
+  //** canEdit
+  //**************************************************************************
+  /** Returns true if the current user can edit this calendar.
+   */
     public boolean canEdit(){
         return !get("canEdit").isNull() && get("canEdit").toBoolean();
     }
 
+
+  //**************************************************************************
+  //** getColor
+  //**************************************************************************
+  /** Returns the calendar color category (e.g. auto|lightBlue|...), or null.
+   */
     public String getColor(){
         return get("color").isNull() ? null : get("color").toString();
     }
 
-  /** Returns the calendar owner as an {@link EmailAddress} (<code>{name,address}</code>). */
+
+  //**************************************************************************
+  //** getOwner
+  //**************************************************************************
+  /** Returns the calendar owner as an {@link EmailAddress} (<code>{name,address}</code>).
+   */
     public EmailAddress getOwner(){
         if (get("owner").isNull()) return null;
         try{ return new EmailAddress(get("owner").toJSONObject()); }
@@ -74,8 +106,9 @@ public class Calendar extends Node {
   //**************************************************************************
   //** getEvents
   //**************************************************************************
-  /** Same as {@link #getEvents(javaxt.utils.Date, javaxt.utils.Date)} with query
-   *  options ($select, $expand extensions, page size, time zone, plain-text body).
+  /** Same as {@link #getEvents(javaxt.utils.Date, javaxt.utils.Date)} with
+   *  query options ($select, $expand extensions, page size, time zone, plain-
+   *  text body).
    */
     public List<CalendarEvent> getEvents(javaxt.utils.Date start, javaxt.utils.Date end, EventQuery opts) throws GraphException {
         if (opts==null) opts = new EventQuery();
@@ -141,6 +174,9 @@ public class Calendar extends Node {
   //**************************************************************************
   //** getEvent
   //**************************************************************************
+  /** Fetches a single event by id from the user's mailbox and returns it as a
+   *  {@link CalendarEvent}.
+   */
     public CalendarEvent getEvent(String id) throws GraphException {
         return bind(conn.get("/users/" + userID + "/events/" + id));
     }
@@ -165,19 +201,24 @@ public class Calendar extends Node {
   //**************************************************************************
   //** updateEvent
   //**************************************************************************
-  /** Applies the event's pending changes via PATCH and returns the event updated
-   *  with the server copy. Read-only keys are stripped from the body. By default
-   *  the write is unconditional (last-writer-wins), which is what the EMR wants
-   *  after resolving conflicts itself; use {@link #updateEvent(CalendarEvent,boolean)}
-   *  to opt into optimistic concurrency. Updating an occurrence creates an
-   *  exception, as intended.
+  /** Applies the event's pending changes via PATCH and returns the event
+   *  updated with the server copy. Read-only keys are stripped from the body.
+   *  By default the write is unconditional (last-writer-wins), which is what a
+   *  caller that resolves conflicts itself typically wants; use
+   *  {@link #updateEvent(CalendarEvent,boolean)} to opt into optimistic
+   *  concurrency. Updating an occurrence creates an exception, as intended.
    */
     public CalendarEvent updateEvent(CalendarEvent event) throws GraphException {
         return updateEvent(event, false);
     }
 
-  /** @param useIfMatch when true, sends <code>If-Match: changeKey</code> so the
-   *  PATCH fails with 412 if the item changed server-side since it was loaded.
+
+  //**************************************************************************
+  //** updateEvent
+  //**************************************************************************
+  /** @param useIfMatch when true, sends <code>If-Match: changeKey</code> so
+   *  the PATCH fails with 412 if the item changed server-side since it was
+   *  loaded.
    */
     public CalendarEvent updateEvent(CalendarEvent event, boolean useIfMatch) throws GraphException {
         String id = event.getID();
@@ -217,8 +258,8 @@ public class Calendar extends Node {
   //**************************************************************************
   //** cancelEvent
   //**************************************************************************
-  /** Cancels a meeting and notifies attendees. Only valid when the mailbox owner
-   *  is the organizer.
+  /** Cancels a meeting and notifies attendees. Only valid when the mailbox
+   *  owner is the organizer.
    */
     public void cancelEvent(String id, String comment) throws GraphException {
         JSONObject payload = new JSONObject();
@@ -230,18 +271,25 @@ public class Calendar extends Node {
   //**************************************************************************
   //** bind
   //**************************************************************************
+  /** Wraps a Graph event JSON payload as a {@link CalendarEvent} bound to
+   *  this connection, with its resource path set.
+   */
     private CalendarEvent bind(JSONObject json){
         CalendarEvent event = new CalendarEvent(json, conn);
         event.setResourcePath(resourcePath(json));
         return event;
     }
 
+
+  //**************************************************************************
+  //** resourcePath
+  //**************************************************************************
+  /** Returns the Graph resource path for the given event JSON, or null.
+   */
     private String resourcePath(JSONObject json){
         if (json==null || json.get("id").isNull()) return null;
         return "/users/" + userID + "/events/" + json.get("id").toString();
     }
-
-
 
 
   //**************************************************************************
@@ -262,26 +310,82 @@ public class Calendar extends Node {
         private String filter;
         private String orderBy;
 
-      /** Page size ($top). Default 50; calendarView allows up to 1000. */
+
+      //************************************************************************
+      //** setTop
+      //************************************************************************
+      /** Page size ($top). Default 50; calendarView allows up to 1000.
+       */
         public EventQuery setTop(Integer top){ this.top = top; return this; }
+
+
+      //************************************************************************
+      //** getTop
+      //************************************************************************
+      /** Returns the configured page size ($top), or null for the default.
+       */
         public Integer getTop(){ return top; }
 
+
+      //************************************************************************
+      //** select
+      //************************************************************************
+      /** Adds one or more property names to the $select projection.
+       */
         public EventQuery select(String... properties){
             if (properties!=null) for (String p : properties) if (p!=null) select.add(p);
             return this;
         }
 
+
+      //************************************************************************
+      //** expandExtension
+      //************************************************************************
+      /** Adds one or more open-extension names to $expand.
+       */
         public EventQuery expandExtension(String... extensionNames){
             if (extensionNames!=null) for (String n : extensionNames) if (n!=null) expandExtensions.add(n);
             return this;
         }
 
+
+      //************************************************************************
+      //** setTimeZone
+      //************************************************************************
+      /** Sets the time zone results are returned in (Prefer: outlook.timezone).
+       */
         public EventQuery setTimeZone(String timeZone){ this.timeZone = timeZone; return this; }
+
+
+      //************************************************************************
+      //** setTextBody
+      //************************************************************************
+      /** When true, requests plain-text bodies (Prefer: outlook.body-content-type="text").
+       */
         public EventQuery setTextBody(boolean textBody){ this.textBody = textBody; return this; }
+
+
+      //************************************************************************
+      //** setFilter
+      //************************************************************************
+      /** Sets the $filter expression applied to the query.
+       */
         public EventQuery setFilter(String filter){ this.filter = filter; return this; }
+
+
+      //************************************************************************
+      //** setOrderBy
+      //************************************************************************
+      /** Sets the $orderby expression applied to the query.
+       */
         public EventQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
 
-      /** Returns the Prefer value implied by this query (timezone/body), or null. */
+
+      //************************************************************************
+      //** buildPrefer
+      //************************************************************************
+      /** Returns the Prefer value implied by this query (timezone/body), or null.
+       */
         public String buildPrefer(){
             ArrayList<String> parts = new ArrayList<>();
             if (timeZone!=null && !timeZone.trim().isEmpty()) parts.add("outlook.timezone=\"" + timeZone + "\"");
@@ -309,8 +413,28 @@ public class Calendar extends Node {
             this.deltaLink = deltaLink;
         }
 
+
+      //************************************************************************
+      //** getEvents
+      //************************************************************************
+      /** Returns the events added or changed since the previous sync.
+       */
         public List<CalendarEvent> getEvents(){ return events; }
+
+
+      //************************************************************************
+      //** getRemovedIds
+      //************************************************************************
+      /** Returns the ids of events removed since the previous sync.
+       */
         public List<String> getRemovedIds(){ return removedIds; }
+
+
+      //************************************************************************
+      //** getDeltaLink
+      //************************************************************************
+      /** Returns the delta link to persist and pass to the next sync.
+       */
         public String getDeltaLink(){ return deltaLink; }
     }
 }

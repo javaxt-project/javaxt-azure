@@ -32,6 +32,13 @@ public class GraphException extends Exception {
         this(response, parseError(response));
     }
 
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Internal constructor that sets the status, Graph error code and request-id
+   *  from the response and the parsed error object.
+   */
     private GraphException(Connection.Response response, JSONObject error){
         super(buildMessage(response, error));
         this.status = response==null ? 0 : response.getStatus();
@@ -71,6 +78,13 @@ public class GraphException extends Exception {
         this.error = null;
     }
 
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a GraphException with a plain message and an underlying cause
+   *  (e.g. an I/O or interruption failure).
+   */
     public GraphException(String message, Throwable cause){
         super(message, cause);
         this.status = 0;
@@ -94,7 +108,8 @@ public class GraphException extends Exception {
   //**************************************************************************
   //** getCode
   //**************************************************************************
-  /** Returns the Graph error code (e.g. "ErrorItemNotFound") or null. */
+  /** Returns the Graph error code (e.g. "ErrorItemNotFound") or null.
+   */
     public String getCode(){
         return code;
     }
@@ -103,7 +118,8 @@ public class GraphException extends Exception {
   //**************************************************************************
   //** getRequestID
   //**************************************************************************
-  /** Returns the Graph request-id, useful when opening a support ticket, or null. */
+  /** Returns the Graph request-id, useful when opening a support ticket, or null.
+   */
     public String getRequestID(){
         return requestID;
     }
@@ -123,6 +139,8 @@ public class GraphException extends Exception {
   //**************************************************************************
   //** parseError
   //**************************************************************************
+  /** Extracts the Graph <code>error</code> object from a response body, or null.
+   */
     private static JSONObject parseError(Connection.Response response){
         if (response==null) return null;
         try{
@@ -139,6 +157,8 @@ public class GraphException extends Exception {
   //**************************************************************************
   //** buildMessage
   //**************************************************************************
+  /** Builds the exception message from the response status and Graph error.
+   */
     private static String buildMessage(Connection.Response response, JSONObject error){
         StringBuilder sb = new StringBuilder("Graph request failed");
         if (response!=null) sb.append(" (HTTP ").append(response.getStatus()).append(")");

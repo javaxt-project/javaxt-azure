@@ -45,7 +45,8 @@ public class Credentials {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** App-only credentials using the OAuth 2.0 client-credentials grant. */
+  /** App-only credentials using the OAuth 2.0 client-credentials grant.
+   */
     public Credentials(String tenantID, String clientID, String clientSecret){
         this.tenantID = tenantID;
         this.clientID = clientID;
@@ -103,6 +104,9 @@ public class Credentials {
   //**************************************************************************
   //** getExpirationDate
   //**************************************************************************
+  /** Returns the expiration date of the cached app-only token, or null if no
+   *  token has been acquired (or these are pre-authenticated credentials).
+   */
     public synchronized javaxt.utils.Date getExpirationDate(){
         return expirationDate;
     }
@@ -111,6 +115,9 @@ public class Credentials {
   //**************************************************************************
   //** connect
   //**************************************************************************
+  /** Acquires a new app-only access token via the client-credentials grant and
+   *  caches it along with its expiration date.
+   */
     private void connect() throws GraphException {
         if (client==null) client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
@@ -162,6 +169,8 @@ public class Credentials {
   //**************************************************************************
   //** enc
   //**************************************************************************
+  /** URL-encodes a form value (treating null as an empty string).
+   */
     private static String enc(String s){
         return URLEncoder.encode(s==null ? "" : s, UTF_8);
     }

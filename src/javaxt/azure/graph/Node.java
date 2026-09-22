@@ -32,6 +32,8 @@ public class Node {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a Node wrapping the given Graph JSON and connection.
+   */
     protected Node(JSONObject json, Connection conn){
         this.json = (json==null) ? new JSONObject() : json;
         this.conn = conn;
@@ -41,7 +43,8 @@ public class Node {
   //**************************************************************************
   //** getID
   //**************************************************************************
-  /** Returns the Graph <code>id</code>, or null for a new object not yet saved. */
+  /** Returns the Graph <code>id</code>, or null for a new object not yet saved.
+   */
     public String getID(){
         JSONValue v = json.get("id");
         return v.isNull() ? null : v.toString();
@@ -64,7 +67,8 @@ public class Node {
   //**************************************************************************
   //** get
   //**************************************************************************
-  /** Returns the raw value for the given key. */
+  /** Returns the raw value for the given key.
+   */
     public JSONValue get(String key){
         return json.get(key);
     }
@@ -73,6 +77,8 @@ public class Node {
   //**************************************************************************
   //** has
   //**************************************************************************
+  /** Returns true if the given key is present and non-null.
+   */
     public boolean has(String key){
         return !json.get(key).isNull();
     }
@@ -81,6 +87,8 @@ public class Node {
   //**************************************************************************
   //** getKeys
   //**************************************************************************
+  /** Returns the set of property keys in the backing JSON.
+   */
     public Set<String> getKeys(){
         return json.keySet();
     }
@@ -113,6 +121,8 @@ public class Node {
   //**************************************************************************
   //** isDirty
   //**************************************************************************
+  /** Returns true if any property has been set since the object was loaded.
+   */
     public boolean isDirty(){
         return !dirty.isEmpty();
     }
@@ -137,7 +147,8 @@ public class Node {
   //**************************************************************************
   //** resetChanges
   //**************************************************************************
-  /** Clears the dirty-key set. Called after a successful save. */
+  /** Clears the dirty-key set. Called after a successful save.
+   */
     protected void resetChanges(){
         dirty.clear();
     }
@@ -158,6 +169,8 @@ public class Node {
   //**************************************************************************
   //** getCreatedDateTime
   //**************************************************************************
+  /** Returns the Graph <code>createdDateTime</code>, or null.
+   */
     public javaxt.utils.Date getCreatedDateTime(){
         return toDate(json.get("createdDateTime"));
     }
@@ -166,6 +179,8 @@ public class Node {
   //**************************************************************************
   //** getLastModifiedDateTime
   //**************************************************************************
+  /** Returns the Graph <code>lastModifiedDateTime</code>, or null.
+   */
     public javaxt.utils.Date getLastModifiedDateTime(){
         return toDate(json.get("lastModifiedDateTime"));
     }
@@ -186,6 +201,8 @@ public class Node {
   //**************************************************************************
   //** toDate
   //**************************************************************************
+  /** Converts a JSON value to a Date, or null when the value is null.
+   */
     private static javaxt.utils.Date toDate(JSONValue v){
         if (v==null || v.isNull()) return null;
         return parseDate(v.toString());
@@ -211,7 +228,8 @@ public class Node {
   //**************************************************************************
   //** toJson
   //**************************************************************************
-  /** Returns the full backing JSON object. */
+  /** Returns the full backing JSON object.
+   */
     public JSONObject toJson(){
         return json;
     }
@@ -220,6 +238,8 @@ public class Node {
   //**************************************************************************
   //** toString
   //**************************************************************************
+  /** Returns the backing JSON as a pretty-printed string.
+   */
     public String toString(){
         return json.toString(4);
     }

@@ -18,18 +18,29 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a mail folder wrapping a Graph mailFolder resource for the given
+   *  user.
+   */
     public EmailFolder(JSONObject json, String userID, Connection conn){
         super(json, userID, conn);
     }
 
 
   //**************************************************************************
-  //** counts
+  //** getTotalItemCount
   //**************************************************************************
+  /** Returns the total number of messages in this folder, or null if unknown.
+   */
     public Integer getTotalItemCount(){
         return get("totalItemCount").isNull() ? null : get("totalItemCount").toInteger();
     }
 
+
+  //**************************************************************************
+  //** getUnreadItemCount
+  //**************************************************************************
+  /** Returns the number of unread messages in this folder, or null if unknown.
+   */
     public Integer getUnreadItemCount(){
         return get("unreadItemCount").isNull() ? null : get("unreadItemCount").toInteger();
     }
@@ -38,11 +49,18 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** getEmails
   //**************************************************************************
+  /** Returns all messages in this folder using default query options.
+   */
     public List<Email> getEmails() throws GraphException {
         return getEmails(new EmailQuery());
     }
 
-  /** Returns the messages in this folder, following paging to the end. */
+
+  //**************************************************************************
+  //** getEmails
+  //**************************************************************************
+  /** Returns the messages in this folder, following paging to the end.
+   */
     public List<Email> getEmails(EmailQuery opts) throws GraphException {
         if (opts==null) opts = new EmailQuery();
 
@@ -106,6 +124,8 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** getChildFolders
   //**************************************************************************
+  /** Returns the immediate child folders of this mail folder.
+   */
     public List<EmailFolder> getChildFolders() throws GraphException {
         String url = "/users/" + userID + "/mailFolders/" + getID() + "/childFolders";
         ArrayList<EmailFolder> list = new ArrayList<>();
@@ -115,12 +135,20 @@ public class EmailFolder extends Folder {
 
 
   //**************************************************************************
-  //** path helpers
+  //** messagesBase
   //**************************************************************************
+  /** Returns the base messages URL for this folder.
+   */
     private String messagesBase(){
         return "/users/" + userID + "/mailFolders/" + getID() + "/messages";
     }
 
+
+  //**************************************************************************
+  //** bind
+  //**************************************************************************
+  /** Wraps a Graph message JSON object in an Email and sets its resource path.
+   */
     private Email bind(JSONObject json){
         Email m = new Email(json, conn);
         if (!json.get("id").isNull()){
@@ -128,7 +156,6 @@ public class EmailFolder extends Folder {
         }
         return m;
     }
-
 
 
   //**************************************************************************
@@ -149,28 +176,67 @@ public class EmailFolder extends Folder {
         private String orderBy;
         private String search;
 
-      /** Page size ($top per request). Default 50. */
+
+      //**************************************************************************
+      //** setTop
+      //**************************************************************************
+      /** Page size ($top per request). Default 50.
+       */
         public EmailQuery setTop(Integer top){ this.top = top; return this; }
 
+
+      //**************************************************************************
+      //** setLimit
+      //**************************************************************************
       /** Maximum number of messages to return in total; paging stops once
        *  reached (so a large folder is never fully paged). Null means no limit.
        */
         public EmailQuery setLimit(Integer limit){ this.limit = limit; return this; }
 
+
+      //**************************************************************************
+      //** select
+      //**************************************************************************
+      /** Restricts the properties returned for each message ($select).
+       */
         public EmailQuery select(String... properties){
             if (properties!=null) for (String p : properties) if (p!=null) select.add(p);
             return this;
         }
 
+
+      //**************************************************************************
+      //** expandExtension
+      //**************************************************************************
+      /** Expands the named open extensions on each message ($expand).
+       */
         public EmailQuery expandExtension(String... extensionNames){
             if (extensionNames!=null) for (String n : extensionNames) if (n!=null) expandExtensions.add(n);
             return this;
         }
 
+
+      //**************************************************************************
+      //** setFilter
+      //**************************************************************************
+      /** Sets an OData $filter expression (ignored when $search is set).
+       */
         public EmailQuery setFilter(String filter){ this.filter = filter; return this; }
+
+
+      //**************************************************************************
+      //** setOrderBy
+      //**************************************************************************
+      /** Sets an OData $orderby expression (ignored when $search is set).
+       */
         public EmailQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
 
-      /** Full-text search. Note: Graph disables $orderby/$count while searching. */
+
+      //**************************************************************************
+      //** setSearch
+      //**************************************************************************
+      /** Full-text search. Note: Graph disables $orderby/$count while searching.
+       */
         public EmailQuery setSearch(String search){ this.search = search; return this; }
     }
 
@@ -193,8 +259,28 @@ public class EmailFolder extends Folder {
             this.deltaLink = deltaLink;
         }
 
+
+      //**************************************************************************
+      //** getEmails
+      //**************************************************************************
+      /** Returns the messages added or changed since the previous sync.
+       */
         public List<Email> getEmails(){ return messages; }
+
+
+      //**************************************************************************
+      //** getRemovedIds
+      //**************************************************************************
+      /** Returns the ids of messages removed since the previous sync.
+       */
         public List<String> getRemovedIds(){ return removedIds; }
+
+
+      //**************************************************************************
+      //** getDeltaLink
+      //**************************************************************************
+      /** Returns the delta link to persist and pass to the next sync.
+       */
         public String getDeltaLink(){ return deltaLink; }
     }
 }

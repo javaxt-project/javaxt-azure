@@ -4,6 +4,15 @@ import java.util.*;
 import javaxt.json.*;
 import javax.net.ssl.*;
 
+//******************************************************************************
+//**  SharePoint
+//******************************************************************************
+/**
+ *   Provides read access to files and folders stored in a SharePoint site's
+ *   document libraries (drives) via Microsoft Graph.
+ *
+ ******************************************************************************/
+
 public class SharePoint {
 
     private final Connection conn;
@@ -13,6 +22,9 @@ public class SharePoint {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a SharePoint client for the given host (e.g.
+   *  "contoso.sharepoint.com"), using the given Graph connection.
+   */
     public SharePoint(String host, Connection conn){
         this.host = host;
         this.conn = conn;
@@ -22,6 +34,9 @@ public class SharePoint {
   //**************************************************************************
   //** getSite
   //**************************************************************************
+  /** Returns the site with the given name (the path under
+   *  <code>/sites/</code>).
+   */
     public Site getSite(String name) throws Exception {
         return new Site(name);
     }
@@ -30,15 +45,28 @@ public class SharePoint {
   //**************************************************************************
   //** Site Class
   //**************************************************************************
+  /** Represents a SharePoint site and its document libraries (drives).
+   */
     public class Site {
         private final String siteID;
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Looks up and stores the site id for the given site name.
+       */
         public Site(String name) throws Exception {
             String url = "/sites/" + host + ":/sites/" + name + "?select=id";
             JSONObject siteInfo = conn.getResponse(url);
             siteID = siteInfo.get("id").toString();
         }
 
+
+      //**********************************************************************
+      //** getDrives
+      //**********************************************************************
+      /** Returns all document libraries (drives) in the site.
+       */
         public ArrayList<Drive> getDrives() throws Exception {
             ArrayList<Drive> drives = new ArrayList<>();
             String url = "/sites/" + siteID + "/drives";
@@ -48,6 +76,12 @@ public class SharePoint {
             return drives;
         }
 
+
+      //**********************************************************************
+      //** getDrive
+      //**********************************************************************
+      /** Returns the drive with the given name, or null if none matches.
+       */
         public Drive getDrive(String name) throws Exception {
             for (Drive drive : getDrives()){
                 if (drive.getName().equalsIgnoreCase(name)){
@@ -63,21 +97,46 @@ public class SharePoint {
   //**************************************************************************
   //** Drive Class
   //**************************************************************************
+  /** Represents a document library (drive) and the files/folders it contains.
+   */
     public class Drive {
         private final JSONObject json;
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Wraps a Graph drive JSON object.
+       */
         private Drive(JSONObject json){
             this.json = json;
         }
 
+
+      //**********************************************************************
+      //** getName
+      //**********************************************************************
+      /** Returns the drive name.
+       */
         public String getName(){
             return json.get("name").toString();
         }
 
+
+      //**********************************************************************
+      //** getID
+      //**********************************************************************
+      /** Returns the drive id.
+       */
         public String getID(){
             return json.get("id").toString();
         }
 
+
+      //**********************************************************************
+      //** getChildren
+      //**********************************************************************
+      /** Returns the items in the drive's root folder.
+       */
         public ArrayList<Item> getChildren() throws Exception {
             ArrayList<Item> items = new ArrayList<>();
             String url = "/drives/" + getID() + "/root/children";
@@ -87,6 +146,13 @@ public class SharePoint {
             return items;
         }
 
+
+      //**********************************************************************
+      //** getFolder
+      //**********************************************************************
+      /** Returns the folder at the given path (a sequence of folder names from
+       *  the drive root), or null if the path cannot be resolved.
+       */
         public Item getFolder(String... names) throws Exception {
             for (Item item : getChildren()){
                 if (item.getName().equalsIgnoreCase(names[0])){
@@ -108,6 +174,12 @@ public class SharePoint {
             return null;
         }
 
+
+      //**********************************************************************
+      //** findFolder
+      //**********************************************************************
+      /** Returns the named child folder of the given folder, or null.
+       */
         private Item findFolder(String name, Item folder) throws Exception {
             for (Item item : folder.getChildren()){
                 if (item.getName().equalsIgnoreCase(name)){
@@ -119,6 +191,12 @@ public class SharePoint {
             return null;
         }
 
+
+      //**********************************************************************
+      //** toString
+      //**********************************************************************
+      /** Returns the drive's underlying JSON as a formatted string.
+       */
         public String toString(){
             return json.toString(4);
         }
@@ -128,33 +206,68 @@ public class SharePoint {
   //**************************************************************************
   //** Item Class
   //**************************************************************************
-  /** Used to represent a file or folder on a drive
+  /** Represents a file or folder (driveItem) on a drive.
    */
     public class Item {
         private final JSONObject json;
         private final Drive drive;
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Wraps a Graph driveItem JSON object bound to its drive.
+       */
         private Item(JSONObject json, Drive drive){
             this.json = json;
             this.drive = drive;
         }
 
+
+      //**********************************************************************
+      //** getName
+      //**********************************************************************
+      /** Returns the item name (file or folder name).
+       */
         public String getName(){
             return json.get("name").toString();
         }
 
+
+      //**********************************************************************
+      //** getID
+      //**********************************************************************
+      /** Returns the item id.
+       */
         public String getID(){
             return json.get("id").toString();
         }
 
+
+      //**********************************************************************
+      //** isFolder
+      //**********************************************************************
+      /** Returns true if this item is a folder.
+       */
         public boolean isFolder(){
             return json.has("folder");
         }
 
+
+      //**********************************************************************
+      //** get
+      //**********************************************************************
+      /** Returns the raw value for the given key.
+       */
         public JSONValue get(String key){
             return json.get(key);
         }
 
+
+      //**********************************************************************
+      //** getChildren
+      //**********************************************************************
+      /** Returns the child items of this folder (empty if it is a file).
+       */
         public ArrayList<Item> getChildren() throws Exception {
             ArrayList<Item> items = new ArrayList<>();
             if (!isFolder()) return items; //throw Error?
@@ -166,11 +279,25 @@ public class SharePoint {
             return items;
         }
 
+
+      //**********************************************************************
+      //** download
+      //**********************************************************************
+      /** Downloads this file to the given local path. See
+       *  {@link #download(javaxt.io.File)}.
+       */
         public boolean download(String path) throws Exception {
             return download(new javaxt.io.File(path));
         }
 
 
+      //**********************************************************************
+      //** download
+      //**********************************************************************
+      /** Downloads this file to the given local file, skipping the download when
+       *  the local copy is already up to date. Returns true if the file was
+       *  (re)written, false if it was skipped or this item is a folder.
+       */
         public boolean download(javaxt.io.File file) throws Exception {
             if (isFolder()) return false;
 
@@ -226,6 +353,12 @@ public class SharePoint {
             return true;
         }
 
+
+      //**********************************************************************
+      //** toString
+      //**********************************************************************
+      /** Returns the item's underlying JSON as a formatted string.
+       */
         public String toString(){
             return json.toString(4);
         }

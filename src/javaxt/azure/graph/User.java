@@ -19,22 +19,39 @@ public class User extends Node {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a User from a Graph user JSON object bound to the given
+   *  connection.
+   */
     public User(JSONObject json, Connection conn){
         super(json, conn);
     }
 
 
   //**************************************************************************
-  //** Metadata
+  //** getEmail
   //**************************************************************************
+  /** Returns the user's primary email (<code>mail</code>), or null.
+   */
     public String getEmail(){
         return get("mail").isNull() ? null : get("mail").toString();
     }
 
+
+  //**************************************************************************
+  //** getUserPrincipalName
+  //**************************************************************************
+  /** Returns the user principal name (UPN), or null.
+   */
     public String getUserPrincipalName(){
         return get("userPrincipalName").isNull() ? null : get("userPrincipalName").toString();
     }
 
+
+  //**************************************************************************
+  //** getDisplayName
+  //**************************************************************************
+  /** Returns the user's display name, or null.
+   */
     public String getDisplayName(){
         return get("displayName").isNull() ? null : get("displayName").toString();
     }
@@ -43,7 +60,8 @@ public class User extends Node {
   //**************************************************************************
   //** getUser
   //**************************************************************************
-  /** Looks up a single user by id or user principal name (UPN). */
+  /** Looks up a single user by id or user principal name (UPN).
+   */
     public static User getUser(String idOrUPN, Connection conn) throws GraphException {
         Connection.Query qb = new Connection.Query("/users/" + idOrUPN);
         qb.set("$select", USER_SELECT);
@@ -54,7 +72,8 @@ public class User extends Node {
   //**************************************************************************
   //** getUsers
   //**************************************************************************
-  /** Returns all users in the tenant, following paging (no silent truncation). */
+  /** Returns all users in the tenant, following paging (no silent truncation).
+   */
     public static List<User> getUsers(Connection conn) throws GraphException {
         Connection.Query qb = new Connection.Query("/users");
         qb.set("$select", USER_SELECT);
@@ -69,8 +88,8 @@ public class User extends Node {
   //**************************************************************************
   //** findByEmail
   //**************************************************************************
-  /** Finds a user by primary email (<code>mail</code>) or, failing that, by any
-   *  proxy address. Returns null if no match is found.
+  /** Finds a user by primary email (<code>mail</code>) or, failing that, by
+   *  any proxy address. Returns null if no match is found.
    */
     public static User findByEmail(String email, Connection conn) throws GraphException {
         if (email==null) return null;
@@ -99,7 +118,8 @@ public class User extends Node {
   //**************************************************************************
   //** getCalendars
   //**************************************************************************
-  /** Returns all of the user's calendars (including shared calendars). */
+  /** Returns all of the user's calendars (including shared calendars).
+   */
     public List<Calendar> getCalendars() throws GraphException {
         return getCalendars(false);
     }
@@ -131,6 +151,8 @@ public class User extends Node {
   //**************************************************************************
   //** getDefaultCalendar
   //**************************************************************************
+  /** Returns the user's default calendar.
+   */
     public Calendar getDefaultCalendar() throws GraphException {
         String userID = getID();
         return new Calendar(conn.get("/users/" + userID + "/calendar"), userID, conn);
@@ -140,7 +162,8 @@ public class User extends Node {
   //**************************************************************************
   //** getMailboxTimeZone
   //**************************************************************************
-  /** Returns the mailbox's configured time zone (requires MailboxSettings.Read). */
+  /** Returns the mailbox's configured time zone (requires MailboxSettings.Read).
+   */
     public String getMailboxTimeZone() throws GraphException {
         JSONObject json = conn.get("/users/" + getID() + "/mailboxSettings/timeZone");
         return json.get("value").isNull() ? null : json.get("value").toString();
@@ -163,7 +186,8 @@ public class User extends Node {
   //**************************************************************************
   //** getContactFolders
   //**************************************************************************
-  /** Returns the user-created contact folders (the default folder's children). */
+  /** Returns the user-created contact folders (the default folder's children).
+   */
     public List<ContactFolder> getContactFolders() throws GraphException {
         String userID = getID();
         ArrayList<ContactFolder> list = new ArrayList<>();
@@ -177,7 +201,8 @@ public class User extends Node {
   //**************************************************************************
   //** getContactFolder
   //**************************************************************************
-  /** Returns the named contact folder, or null if none matches. */
+  /** Returns the named contact folder, or null if none matches.
+   */
     public ContactFolder getContactFolder(String displayName) throws GraphException {
         String userID = getID();
         Connection.Query q = new Connection.Query("/users/" + userID + "/contactFolders");
@@ -190,6 +215,8 @@ public class User extends Node {
   //**************************************************************************
   //** createContactFolder
   //**************************************************************************
+  /** Creates a new contact folder with the given display name and returns it.
+   */
     public ContactFolder createContactFolder(String displayName) throws GraphException {
         String userID = getID();
         JSONObject payload = new JSONObject();
@@ -216,8 +243,8 @@ public class User extends Node {
   //**************************************************************************
   //** createDraft
   //**************************************************************************
-  /** Creates a draft message in the mailbox and returns it (bound so it can be
-   *  edited, have attachments added, and sent).
+  /** Creates a draft message in the mailbox and returns it (bound so it can
+   *  be edited, have attachments added, and sent).
    */
     public Email createDraft(Email message) throws GraphException {
         String userID = getID();
@@ -262,6 +289,8 @@ public class User extends Node {
   //**************************************************************************
   //** getMessage
   //**************************************************************************
+  /** Returns the mailbox message with the given id, bound so it can be edited.
+   */
     public Email getMessage(String id) throws GraphException {
         String userID = getID();
         Email m = new Email(conn.get("/users/" + userID + "/messages/" + id), conn);
@@ -273,7 +302,8 @@ public class User extends Node {
   //**************************************************************************
   //** escape
   //**************************************************************************
-  /** Escapes single quotes in an OData string literal. */
+  /** Escapes single quotes in an OData string literal.
+   */
     private static String escape(String s){
         return s.replace("'", "''");
     }

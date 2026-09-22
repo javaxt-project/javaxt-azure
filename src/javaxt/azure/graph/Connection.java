@@ -51,8 +51,8 @@ public class Connection {
   //** Constructor
   //**************************************************************************
   /** Creates an app-only connection using the client-credentials grant, with
-   *  <code>Prefer: IdType="ImmutableId"</code> enabled by default (the EMR
-   *  persists ids, so immutable ids are required).
+   *  <code>Prefer: IdType="ImmutableId"</code> enabled by default (immutable ids
+   *  are required when ids are persisted and compared across sessions).
    */
     public Connection(String tenantID, String clientID, String clientSecret) throws GraphException {
         this(tenantID, clientID, clientSecret, true);
@@ -87,6 +87,10 @@ public class Connection {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a connection from the given {@link Credentials}. When
+   *  <code>immutableIds</code> is true, <code>Prefer: IdType="ImmutableId"</code>
+   *  is sent on every request.
+   */
     public Connection(Credentials credentials, boolean immutableIds){
         if (credentials==null) throw new IllegalArgumentException("credentials is required");
         this.credentials = credentials;
@@ -104,6 +108,12 @@ public class Connection {
         if (pref!=null && !preferValues.contains(pref)) preferValues.add(pref);
     }
 
+
+  //**************************************************************************
+  //** getPreferValues
+  //**************************************************************************
+  /** Returns an unmodifiable view of the Prefer header values sent on every request.
+   */
     public List<String> getPreferValues(){
         return Collections.unmodifiableList(preferValues);
     }
@@ -112,7 +122,8 @@ public class Connection {
   //**************************************************************************
   //** setMaxRetries
   //**************************************************************************
-  /** Sets the maximum number of retries on transient errors (429/503/504). */
+  /** Sets the maximum number of retries on transient errors (429/503/504).
+   */
     public void setMaxRetries(int maxRetries){
         this.maxRetries = Math.max(0, maxRetries);
     }
@@ -121,36 +132,58 @@ public class Connection {
   //**************************************************************************
   //** getGraphURL
   //**************************************************************************
-  /** Returns the Graph base URL, e.g. "https://graph.microsoft.com/v1.0". */
+  /** Returns the Graph base URL, e.g. "https://graph.microsoft.com/v1.0".
+   */
     public String getGraphURL(){
         return graphURL;
     }
 
 
   //**************************************************************************
-  //** get / post / patch / delete / getBytes
+  //** get
   //**************************************************************************
-  /** Issues a GET and returns the parsed JSON body. */
+  /** Issues a GET and returns the parsed JSON body.
+   */
     public JSONObject get(String url) throws GraphException {
         return execute("GET", url, null, null).toJson();
     }
 
-  /** Issues a POST with a JSON body; returns the parsed response (empty for 202/204). */
+
+  //**************************************************************************
+  //** post
+  //**************************************************************************
+  /** Issues a POST with a JSON body; returns the parsed response (empty for 202/204).
+   */
     public JSONObject post(String url, JSONObject payload) throws GraphException {
         return execute("POST", url, payload, null).toJson();
     }
 
-  /** Issues a PATCH with a JSON body; returns the parsed response (empty for 204). */
+
+  //**************************************************************************
+  //** patch
+  //**************************************************************************
+  /** Issues a PATCH with a JSON body; returns the parsed response (empty for 204).
+   */
     public JSONObject patch(String url, JSONObject payload) throws GraphException {
         return execute("PATCH", url, payload, null).toJson();
     }
 
-  /** Issues a DELETE; succeeds on any 2xx, throws a {@link GraphException} (e.g. 404) otherwise. */
+
+  //**************************************************************************
+  //** delete
+  //**************************************************************************
+  /** Issues a DELETE; succeeds on any 2xx, throws a {@link GraphException} (e.g. 404) otherwise.
+   */
     public void delete(String url) throws GraphException {
         execute("DELETE", url, null, null);
     }
 
-  /** Issues a GET and returns the raw response body (e.g. attachment/$value content). */
+
+  //**************************************************************************
+  //** getBytes
+  //**************************************************************************
+  /** Issues a GET and returns the raw response body (e.g. attachment/$value content).
+   */
     public byte[] getBytes(String url) throws GraphException {
         return execute("GET", url, null, null).getBody();
     }
@@ -265,6 +298,9 @@ public class Connection {
   //**************************************************************************
   //** buildHeaders
   //**************************************************************************
+  /** Builds the request headers, merging the default Authorization/Accept and
+   *  standing <code>Prefer</code> values with any per-request extra headers.
+   */
     private Map<String, String> buildHeaders(boolean hasBody, Map<String, String> extraHeaders) throws GraphException {
         LinkedHashMap<String, String> headers = new LinkedHashMap<>();
         headers.put("Authorization", credentials.getAuthorization());
@@ -291,6 +327,9 @@ public class Connection {
   //**************************************************************************
   //** retryWaitMillis
   //**************************************************************************
+  /** Returns the delay before the next retry, honouring <code>Retry-After</code>
+   *  when present and otherwise using capped exponential backoff.
+   */
     private long retryWaitMillis(Response response, int attempt){
         String retryAfter = response.getHeader("Retry-After");
         if (retryAfter!=null){
@@ -316,6 +355,10 @@ public class Connection {
         return getPage(url, null);
     }
 
+
+  //**************************************************************************
+  //** getPage
+  //**************************************************************************
   /** Same as {@link #getPage(String)} but sends the given extra headers (e.g. a
    *  per-request <code>Prefer</code>) on every page request.
    */
@@ -331,7 +374,8 @@ public class Connection {
   //**************************************************************************
   //** getList
   //**************************************************************************
-  /** Collects an entire paged collection into a list. */
+  /** Collects an entire paged collection into a list.
+   */
     public List<JSONObject> getList(String url, Map<String, String> headers) throws GraphException {
         ArrayList<JSONObject> list = new ArrayList<>();
         try{
@@ -357,6 +401,13 @@ public class Connection {
         return getDelta(url, null);
     }
 
+
+  //**************************************************************************
+  //** getDelta
+  //**************************************************************************
+  /** Follows a delta query with the given extra headers, returning the collected
+   *  items and the final deltaLink.
+   */
     public Delta getDelta(String url, Map<String, String> headers) throws GraphException {
         ArrayList<JSONObject> items = new ArrayList<>();
         String deltaLink = null;
@@ -384,6 +435,9 @@ public class Connection {
   //**************************************************************************
   //** resolve
   //**************************************************************************
+  /** Resolves a relative path against the Graph base URL; absolute URLs are
+   *  returned unchanged.
+   */
     private String resolve(String url){
         if (url==null) return graphURL;
         if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -404,8 +458,6 @@ public class Connection {
     }
 
 
-
-
   //**************************************************************************
   //** PageIterator Class
   //**************************************************************************
@@ -415,11 +467,23 @@ public class Connection {
         private String nextLink;
         private JSONObject nextItem;
 
+
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Creates an iterator that lazily pages through the collection at the URL.
+       */
         PageIterator(String url, Map<String, String> headers){
             this.headers = headers;
             this.nextLink = url;
         }
 
+
+      //**********************************************************************
+      //** hasNext
+      //**********************************************************************
+      /** Returns true if another item is available, fetching the next page if needed.
+       */
         public boolean hasNext(){
             if (nextItem!=null) return true;
             try{ nextItem = advance(); }
@@ -427,6 +491,12 @@ public class Connection {
             return nextItem!=null;
         }
 
+
+      //**********************************************************************
+      //** next
+      //**********************************************************************
+      /** Returns the next item, or throws NoSuchElementException if none.
+       */
         public JSONObject next(){
             if (!hasNext()) throw new NoSuchElementException();
             JSONObject item = nextItem;
@@ -434,6 +504,12 @@ public class Connection {
             return item;
         }
 
+
+      //**********************************************************************
+      //** advance
+      //**********************************************************************
+      /** Returns the next item from the current page, following nextLink as needed.
+       */
         private JSONObject advance() throws GraphException {
             while (true){
                 if (current!=null && current.hasNext()){
@@ -461,18 +537,55 @@ public class Connection {
         private final Map<String, List<String>> headers;
         private final byte[] body;
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Creates a response from a status code, header map and raw body.
+       */
         public Response(int status, Map<String, List<String>> headers, byte[] body){
             this.status = status;
             this.headers = (headers==null) ? Collections.emptyMap() : headers;
             this.body = body;
         }
 
+
+      //**********************************************************************
+      //** getStatus
+      //**********************************************************************
+      /** Returns the HTTP status code.
+       */
         public int getStatus(){ return status; }
+
+
+      //**********************************************************************
+      //** getHeaders
+      //**********************************************************************
+      /** Returns the response headers, keyed by header name.
+       */
         public Map<String, List<String>> getHeaders(){ return headers; }
+
+
+      //**********************************************************************
+      //** getBody
+      //**********************************************************************
+      /** Returns the raw response body bytes (may be null).
+       */
         public byte[] getBody(){ return body; }
+
+
+      //**********************************************************************
+      //** isEmpty
+      //**********************************************************************
+      /** Returns true when the response has no body.
+       */
         public boolean isEmpty(){ return body==null || body.length==0; }
 
-      /** Returns the first value of the given header (case insensitive), or null. */
+
+      //**********************************************************************
+      //** getHeader
+      //**********************************************************************
+      /** Returns the first value of the given header (case insensitive), or null.
+       */
         public String getHeader(String name){
             if (name==null) return null;
             for (Map.Entry<String, List<String>> entry : headers.entrySet()){
@@ -484,12 +597,23 @@ public class Connection {
             return null;
         }
 
-      /** Parses the body as JSON; returns an empty object for an empty body. */
+
+      //**********************************************************************
+      //** toJson
+      //**********************************************************************
+      /** Parses the body as JSON; returns an empty object for an empty body.
+       */
         public JSONObject toJson(){
             if (isEmpty()) return new JSONObject();
             return new JSONObject(new String(body, UTF_8));
         }
 
+
+      //**********************************************************************
+      //** toString
+      //**********************************************************************
+      /** Returns a human-readable summary: the status line and, if present, the body.
+       */
         public String toString(){
             return "HTTP " + status + (isEmpty() ? "" : "\n" + new String(body, UTF_8));
         }
@@ -508,14 +632,39 @@ public class Connection {
         private final List<JSONObject> items;
         private final String deltaLink;
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Creates a delta result from the collected items and the final deltaLink.
+       */
         public Delta(List<JSONObject> items, String deltaLink){
             this.items = (items==null) ? new ArrayList<>() : items;
             this.deltaLink = deltaLink;
         }
 
+
+      //**********************************************************************
+      //** getItems
+      //**********************************************************************
+      /** Returns every changed item collected across the nextLink chain.
+       */
         public List<JSONObject> getItems(){ return items; }
+
+
+      //**********************************************************************
+      //** getDeltaLink
+      //**********************************************************************
+      /** Returns the final <code>@odata.deltaLink</code> to use for the next sync, or null.
+       */
         public String getDeltaLink(){ return deltaLink; }
 
+
+      //**********************************************************************
+      //** isRemoved
+      //**********************************************************************
+      /** Returns true if the given item is a deletion, i.e. carries an
+       *  <code>@removed</code> marker.
+       */
         public static boolean isRemoved(JSONObject item){
             return item!=null && !item.get("@removed").isNull();
         }
@@ -534,10 +683,22 @@ public class Connection {
         private final String path;
         private final LinkedHashMap<String, String> params = new LinkedHashMap<>();
 
+      //**********************************************************************
+      //** Constructor
+      //**********************************************************************
+      /** Creates a Query for the given URL path (query parameters added via set).
+       */
         public Query(String path){
             this.path = (path==null) ? "" : path;
         }
 
+
+      //**********************************************************************
+      //** set
+      //**********************************************************************
+      /** Sets a query parameter; a null value removes the key. Returns this Query
+       *  for chaining.
+       */
         public Query set(String key, String value){
             if (key==null) return this;
             if (value==null) params.remove(key);
@@ -545,14 +706,32 @@ public class Connection {
             return this;
         }
 
+
+      //**********************************************************************
+      //** set
+      //**********************************************************************
+      /** Sets an integer query parameter. Returns this Query for chaining.
+       */
         public Query set(String key, int value){
             return set(key, Integer.toString(value));
         }
 
+
+      //**********************************************************************
+      //** has
+      //**********************************************************************
+      /** Returns true if the given query parameter has been set.
+       */
         public boolean has(String key){
             return params.containsKey(key);
         }
 
+
+      //**********************************************************************
+      //** toString
+      //**********************************************************************
+      /** Returns the assembled path and percent-encoded query string.
+       */
         public String toString(){
             if (params.isEmpty()) return path;
             StringBuilder sb = new StringBuilder(path).append("?");
@@ -565,7 +744,12 @@ public class Connection {
             return sb.toString();
         }
 
-      /** Percent-encodes a query value; spaces become %20 (not "+"). */
+
+      //**********************************************************************
+      //** encode
+      //**********************************************************************
+      /** Percent-encodes a query value; spaces become %20 (not "+").
+       */
         public static String encode(String value){
             if (value==null) return "";
             return URLEncoder.encode(value, UTF_8).replace("+", "%20");

@@ -20,6 +20,9 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Wraps a Graph contact folder for the given mailbox (userID), bound to the
+   *  connection used to reach it.
+   */
     public ContactFolder(JSONObject json, String userID, Connection conn){
         super(json, userID, conn);
     }
@@ -28,11 +31,18 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** getContacts
   //**************************************************************************
+  /** Returns all the contacts in this folder using default query options.
+   */
     public List<Contact> getContacts() throws GraphException {
         return getContacts(new ContactQuery());
     }
 
-  /** Returns the contacts in this folder, following paging to the end. */
+
+  //**************************************************************************
+  //** getContacts
+  //**************************************************************************
+  /** Returns the contacts in this folder, following paging to the end.
+   */
     public List<Contact> getContacts(ContactQuery opts) throws GraphException {
         if (opts==null) opts = new ContactQuery();
 
@@ -53,6 +63,8 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** getContact
   //**************************************************************************
+  /** Returns a single contact by its (mailbox-unique) id.
+   */
     public Contact getContact(String id) throws GraphException {
         return bind(conn.get(contactPath(id)));
     }
@@ -61,7 +73,8 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** findByEmail
   //**************************************************************************
-  /** Returns the contacts in this folder that have the given email address. */
+  /** Returns the contacts in this folder that have the given email address.
+   */
     public List<Contact> findByEmail(String address) throws GraphException {
         if (address==null) return new ArrayList<>();
         String a = address.trim().toLowerCase().replace("'", "''");
@@ -100,6 +113,10 @@ public class ContactFolder extends Folder {
         return updateContact(contact, false);
     }
 
+
+  //**************************************************************************
+  //** updateContact
+  //**************************************************************************
   /** @param useIfMatch when true, sends <code>If-Match: changeKey</code> (412 on
    *  a server-side change since load).
    */
@@ -127,6 +144,9 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** deleteContact
   //**************************************************************************
+  /** Deletes the contact with the given id from the mailbox. A null id is a
+   *  no-op.
+   */
     public void deleteContact(String id) throws GraphException {
         if (id==null) return;
         conn.delete(contactPath(id));
@@ -161,7 +181,8 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** getChildFolders
   //**************************************************************************
-  /** Returns the child contact folders of this folder. */
+  /** Returns the child contact folders of this folder.
+   */
     public List<ContactFolder> getChildFolders() throws GraphException {
         String url = (getID()==null)
             ? "/users/" + userID + "/contactFolders"
@@ -173,24 +194,44 @@ public class ContactFolder extends Folder {
 
 
   //**************************************************************************
-  //** path helpers
+  //** contactsBase
   //**************************************************************************
+  /** Returns the base path for this folder's contacts collection.
+   */
     private String contactsBase(){
         return (getID()==null)
             ? "/users/" + userID + "/contacts"
             : "/users/" + userID + "/contactFolders/" + getID() + "/contacts";
     }
 
+
+  //**************************************************************************
+  //** contactPath
+  //**************************************************************************
+  /** Returns the resource path for a single contact by id.
+   */
     private String contactPath(String id){
         return "/users/" + userID + "/contacts/" + id;
     }
 
+
+  //**************************************************************************
+  //** bind
+  //**************************************************************************
+  /** Wraps a contact JSON object in a Contact bound to this connection.
+   */
     private Contact bind(JSONObject json){
         Contact c = new Contact(json, conn);
         c.setResourcePath(resourcePath(json));
         return c;
     }
 
+
+  //**************************************************************************
+  //** resourcePath
+  //**************************************************************************
+  /** Returns the resource path derived from a contact JSON object's id, or null.
+   */
     private String resourcePath(JSONObject json){
         if (json==null || json.get("id").isNull()) return null;
         return contactPath(json.get("id").toString());
@@ -213,19 +254,50 @@ public class ContactFolder extends Folder {
         private String filter;
         private String orderBy;
 
+
+      //**********************************************************************
+      //** setTop
+      //**********************************************************************
+      /** Sets the page size (<code>$top</code>) for the query. Returns this query for chaining.
+       */
         public ContactQuery setTop(Integer top){ this.top = top; return this; }
 
+
+      //**********************************************************************
+      //** select
+      //**********************************************************************
+      /** Adds one or more properties to the <code>$select</code> list. Returns this query for chaining.
+       */
         public ContactQuery select(String... properties){
             if (properties!=null) for (String p : properties) if (p!=null) select.add(p);
             return this;
         }
 
+
+      //**********************************************************************
+      //** expandExtension
+      //**********************************************************************
+      /** Adds one or more open-extension names to <code>$expand</code>. Returns this query for chaining.
+       */
         public ContactQuery expandExtension(String... extensionNames){
             if (extensionNames!=null) for (String n : extensionNames) if (n!=null) expandExtensions.add(n);
             return this;
         }
 
+
+      //**********************************************************************
+      //** setFilter
+      //**********************************************************************
+      /** Sets the <code>$filter</code> expression for the query. Returns this query for chaining.
+       */
         public ContactQuery setFilter(String filter){ this.filter = filter; return this; }
+
+
+      //**********************************************************************
+      //** setOrderBy
+      //**********************************************************************
+      /** Sets the <code>$orderby</code> expression for the query. Returns this query for chaining.
+       */
         public ContactQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
     }
 
@@ -248,8 +320,28 @@ public class ContactFolder extends Folder {
             this.deltaLink = deltaLink;
         }
 
+
+      //**********************************************************************
+      //** getContacts
+      //**********************************************************************
+      /** Returns the contacts added or changed since the last sync.
+       */
         public List<Contact> getContacts(){ return contacts; }
+
+
+      //**********************************************************************
+      //** getRemovedIds
+      //**********************************************************************
+      /** Returns the ids of contacts removed since the last sync.
+       */
         public List<String> getRemovedIds(){ return removedIds; }
+
+
+      //**********************************************************************
+      //** getDeltaLink
+      //**********************************************************************
+      /** Returns the delta link to persist and pass to the next sync.
+       */
         public String getDeltaLink(){ return deltaLink; }
     }
 }

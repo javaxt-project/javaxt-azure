@@ -23,6 +23,8 @@ public abstract class Folder extends Node {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates a Folder for the given user's mailbox from Graph JSON.
+   */
     protected Folder(JSONObject json, String userID, Connection conn){
         super(json, conn);
         this.userID = userID;
@@ -32,6 +34,8 @@ public abstract class Folder extends Node {
   //**************************************************************************
   //** getUserID
   //**************************************************************************
+  /** Returns the id of the user (mailbox) that owns this folder.
+   */
     public String getUserID(){
         return userID;
     }
@@ -40,6 +44,8 @@ public abstract class Folder extends Node {
   //**************************************************************************
   //** getDisplayName
   //**************************************************************************
+  /** Returns the folder's display name, or null.
+   */
     public String getDisplayName(){
         return get("displayName").isNull() ? null : get("displayName").toString();
     }
@@ -48,6 +54,8 @@ public abstract class Folder extends Node {
   //**************************************************************************
   //** getParentFolderID
   //**************************************************************************
+  /** Returns the id of the parent folder, or null for a top-level folder.
+   */
     public String getParentFolderID(){
         return get("parentFolderId").isNull() ? null : get("parentFolderId").toString();
     }
@@ -56,6 +64,8 @@ public abstract class Folder extends Node {
   //**************************************************************************
   //** getChildFolderCount
   //**************************************************************************
+  /** Returns the number of child folders, or null if not populated.
+   */
     public Integer getChildFolderCount(){
         return get("childFolderCount").isNull() ? null : get("childFolderCount").toInteger();
     }

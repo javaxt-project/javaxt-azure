@@ -25,6 +25,8 @@ public class EmailAddress {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates an EmailAddress with the given address and no display name.
+   */
     public EmailAddress(String address){
         this(null, address);
     }
@@ -33,7 +35,8 @@ public class EmailAddress {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** @throws IllegalArgumentException if the address is null or malformed. */
+  /** @throws IllegalArgumentException if the address is null or malformed.
+   */
     public EmailAddress(String name, String address){
         if (address==null) throw new IllegalArgumentException("Email address is required");
         String a = address.trim().toLowerCase();
@@ -48,6 +51,8 @@ public class EmailAddress {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates an EmailAddress from a Graph emailAddress JSON object.
+   */
     public EmailAddress(JSONObject json){
         this(json==null || json.get("name").isNull() ? null : json.get("name").toString(),
              json==null ? null : json.get("address").toString());
@@ -55,15 +60,26 @@ public class EmailAddress {
 
 
   //**************************************************************************
-  //** get / to
+  //** getName
   //**************************************************************************
+  /** Returns the display name, or null if none was set.
+   */
     public String getName(){ return name; }
+
+
+  //**************************************************************************
+  //** getAddress
+  //**************************************************************************
+  /** Returns the normalized (trimmed, lowercased) email address.
+   */
     public String getAddress(){ return address; }
 
 
   //**************************************************************************
   //** toJson
   //**************************************************************************
+  /** Returns this email address as a Graph emailAddress JSON object.
+   */
     public JSONObject toJson(){
         JSONObject json = new JSONObject();
         if (name!=null) json.set("name", name);
@@ -75,7 +91,8 @@ public class EmailAddress {
   //**************************************************************************
   //** isValid
   //**************************************************************************
-  /** Returns true if the given string is a syntactically valid email address. */
+  /** Returns true if the given string is a syntactically valid email address.
+   */
     public static boolean isValid(String address){
         if (address==null) return false;
         return EMAIL.matcher(address.trim().toLowerCase()).matches();
@@ -83,8 +100,10 @@ public class EmailAddress {
 
 
   //**************************************************************************
-  //** equals / hashCode / toString
+  //** equals
   //**************************************************************************
+  /** Returns true if the given object is an EmailAddress with the same name and address.
+   */
     public boolean equals(Object obj){
         if (this==obj) return true;
         if (!(obj instanceof EmailAddress)) return false;
@@ -92,10 +111,22 @@ public class EmailAddress {
         return address.equals(o.address) && java.util.Objects.equals(name, o.name);
     }
 
+
+  //**************************************************************************
+  //** hashCode
+  //**************************************************************************
+  /** Returns a hash code derived from the name and address.
+   */
     public int hashCode(){
         return java.util.Objects.hash(name, address);
     }
 
+
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns "name &lt;address&gt;", or just the address when there is no name.
+   */
     public String toString(){
         return name==null ? address : (name + " <" + address + ">");
     }

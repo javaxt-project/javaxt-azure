@@ -25,6 +25,11 @@ import javaxt.json.*;
 
 public class Main {
 
+  //**************************************************************************
+  //** main
+  //**************************************************************************
+  /** Command-line entry point; parses arguments and lists the requested items.
+   */
     public static void main(String[] inputs) throws Exception {
 
         HashMap<String, String> args = parseArgs(inputs);
@@ -114,6 +119,8 @@ public class Main {
   //**************************************************************************
   //** parseArgs
   //**************************************************************************
+  /** Parses "-key value" style arguments into a map.
+   */
     private static HashMap<String, String> parseArgs(String[] inputs){
         HashMap<String, String> args = new HashMap<>();
         if (inputs!=null){

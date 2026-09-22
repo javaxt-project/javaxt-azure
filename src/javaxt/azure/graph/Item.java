@@ -28,21 +28,34 @@ public abstract class Item extends Node {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Creates an Item from Graph JSON bound to the given connection.
+   */
     protected Item(JSONObject json, Connection conn){
         super(json, conn);
     }
 
 
   //**************************************************************************
-  //** setResourcePath / getResourcePath
+  //** setResourcePath
   //**************************************************************************
+  /** Sets the resource path used for per-item operations.
+   */
     void setResourcePath(String resourcePath){ this.resourcePath = resourcePath; }
+
+
+  //**************************************************************************
+  //** getResourcePath
+  //**************************************************************************
+  /** Returns the resource path used for per-item operations.
+   */
     String getResourcePath(){ return resourcePath; }
 
 
   //**************************************************************************
-  //** Categories
+  //** getCategories
   //**************************************************************************
+  /** Returns the item's category names, or an empty list.
+   */
     public List<String> getCategories(){
         ArrayList<String> list = new ArrayList<>();
         if (!get("categories").isNull()){
@@ -51,6 +64,12 @@ public abstract class Item extends Node {
         return list;
     }
 
+
+  //**************************************************************************
+  //** setCategories
+  //**************************************************************************
+  /** Sets the item's category names (nulls are skipped).
+   */
     public void setCategories(List<String> categories){
         JSONArray arr = new JSONArray();
         if (categories!=null) for (String c : categories) if (c!=null) arr.add(c);
@@ -59,7 +78,7 @@ public abstract class Item extends Node {
 
 
   //**************************************************************************
-  //** Body
+  //** getBody
   //**************************************************************************
   /** Returns the body content (the text/html string), or null. Applies to
    *  events and emails; contacts have no body.
@@ -70,13 +89,22 @@ public abstract class Item extends Node {
         return content.isNull() ? null : content.toString();
     }
 
-  /** Returns the body content type ("text" or "html"), or null. */
+
+  //**************************************************************************
+  //** getBodyType
+  //**************************************************************************
+  /** Returns the body content type ("text" or "html"), or null.
+   */
     public String getBodyType(){
         if (get("body").isNull()) return null;
         JSONValue type = get("body").toJSONObject().get("contentType");
         return type.isNull() ? null : type.toString();
     }
 
+
+  //**************************************************************************
+  //** setBody
+  //**************************************************************************
   /** Sets the body content and format (Graph <code>itemBody</code> shape).
    *  @param format "text" or "html"; defaults to "text" when null.
    */
@@ -88,12 +116,25 @@ public abstract class Item extends Node {
         set("body", json);
     }
 
+
+  //**************************************************************************
+  //** setTextBody
+  //**************************************************************************
+  /** Sets the body as plain text.
+   */
     public void setTextBody(String body){ setBody(body, "text"); }
+
+
+  //**************************************************************************
+  //** setHtmlBody
+  //**************************************************************************
+  /** Sets the body as HTML.
+   */
     public void setHtmlBody(String body){ setBody(body, "html"); }
 
 
   //**************************************************************************
-  //** Attachments
+  //** hasAttachments
   //**************************************************************************
   /** True when this item has attachments. Applies to events and emails;
    *  contacts have no attachments.
@@ -102,7 +143,12 @@ public abstract class Item extends Node {
         return !get("hasAttachments").isNull() && get("hasAttachments").toBoolean();
     }
 
-  /** Lists this item's attachments (a separate request). */
+
+  //**************************************************************************
+  //** getAttachments
+  //**************************************************************************
+  /** Lists this item's attachments (a separate request).
+   */
     public List<Attachment> getAttachments() throws GraphException {
         requirePath();
         ArrayList<Attachment> list = new ArrayList<>();
@@ -112,12 +158,21 @@ public abstract class Item extends Node {
         return list;
     }
 
-  /** Downloads the raw content of a file attachment. */
+
+  //**************************************************************************
+  //** getAttachmentContent
+  //**************************************************************************
+  /** Downloads the raw content of a file attachment.
+   */
     public byte[] getAttachmentContent(String attachmentId) throws GraphException {
         requirePath();
         return conn.getBytes(resourcePath + "/attachments/" + attachmentId + "/$value");
     }
 
+
+  //**************************************************************************
+  //** addFileAttachment
+  //**************************************************************************
   /** Adds an inline file attachment (&le; 3 MB). Throws for larger payloads,
    *  which require an upload session (out of scope).
    */
@@ -134,7 +189,7 @@ public abstract class Item extends Node {
 
 
   //**************************************************************************
-  //** Open extensions
+  //** getExtension
   //**************************************************************************
   /** Returns the named open extension, either from data already $expand-ed onto
    *  this item or by fetching it from Graph.
@@ -181,6 +236,10 @@ public abstract class Item extends Node {
         return "extensions($filter=" + filter + ")";
     }
 
+
+  //**************************************************************************
+  //** setExtension
+  //**************************************************************************
   /** Creates or updates the named open extension with the given data.
    *  <p>Writing an extension bumps the item's server-side <code>changeKey</code>,
    *  so the stale local changeKey is cleared afterwards; this lets a subsequent
@@ -207,7 +266,12 @@ public abstract class Item extends Node {
         return result;
     }
 
-  /** Removes the named open extension. */
+
+  //**************************************************************************
+  //** removeExtension
+  //**************************************************************************
+  /** Removes the named open extension.
+   */
     public void removeExtension(String name) throws GraphException {
         requirePath();
         conn.delete(resourcePath + "/extensions/" + Connection.Query.encode(name));
@@ -251,14 +315,20 @@ public abstract class Item extends Node {
 
 
   //**************************************************************************
-  //** helpers (for subclasses)
+  //** str
   //**************************************************************************
-  /** Returns a string property, or null. */
+  /** Returns a string property, or null.
+   */
     protected String str(String key){
         return get(key).isNull() ? null : get(key).toString();
     }
 
-  /** Throws if this item is not bound to a mailbox (no connection/resource path). */
+
+  //**************************************************************************
+  //** requirePath
+  //**************************************************************************
+  /** Throws if this item is not bound to a mailbox (no connection/resource path).
+   */
     protected void requirePath() throws GraphException {
         if (conn==null || resourcePath==null){
             throw new GraphException("This item is not bound to a mailbox; save it first");
