@@ -15,6 +15,10 @@ public class User extends Node {
 
     private static final String USER_SELECT = "id,mail,userPrincipalName,displayName";
 
+  //A user-scoped view of the connection, used to bind this user's folders and
+  //calendars to their mailbox (created lazily, shares the base token/transport).
+    private Connection userConn;
+
 
   //**************************************************************************
   //** Constructor
@@ -24,6 +28,28 @@ public class User extends Node {
    */
     public User(JSONObject json, Connection conn){
         super(json, conn);
+    }
+
+
+  //**************************************************************************
+  //** getConnection
+  //**************************************************************************
+  /** Returns a connection scoped to this user's mailbox (a lightweight view of
+   *  the connection this User was created with; shares its token and transport).
+   */
+    public Connection getConnection(){
+        if (userConn==null) userConn = conn.forUser(getID());
+        return userConn;
+    }
+
+
+  //**************************************************************************
+  //** userConn
+  //**************************************************************************
+  /** Internal alias for {@link #getConnection()} used when binding folders.
+   */
+    private Connection userConn(){
+        return getConnection();
     }
 
 
@@ -137,7 +163,7 @@ public class User extends Node {
         String email = getEmail();
         ArrayList<Calendar> calendars = new ArrayList<>();
         for (JSONObject json : conn.getList("/users/" + userID + "/calendars", null)){
-            Calendar calendar = new Calendar(json, userID, conn);
+            Calendar calendar = new Calendar(json, userConn());
             if (ownedOnly){
                 EmailAddress owner = calendar.getOwner();
                 if (owner==null || email==null || !owner.getAddress().equalsIgnoreCase(email)) continue;
@@ -155,7 +181,7 @@ public class User extends Node {
    */
     public Calendar getDefaultCalendar() throws GraphException {
         String userID = getID();
-        return new Calendar(conn.get("/users/" + userID + "/calendar"), userID, conn);
+        return new Calendar(conn.get("/users/" + userID + "/calendar"), userConn());
     }
 
 
@@ -179,7 +205,7 @@ public class User extends Node {
     public ContactFolder getDefaultContactFolder(){
         JSONObject json = new JSONObject();
         json.set("displayName", "Contacts");
-        return new ContactFolder(json, getID(), conn);
+        return new ContactFolder(json, userConn());
     }
 
 
@@ -192,7 +218,7 @@ public class User extends Node {
         String userID = getID();
         ArrayList<ContactFolder> list = new ArrayList<>();
         for (JSONObject json : conn.getList("/users/" + userID + "/contactFolders", null)){
-            list.add(new ContactFolder(json, userID, conn));
+            list.add(new ContactFolder(json, userConn()));
         }
         return list;
     }
@@ -208,7 +234,7 @@ public class User extends Node {
         Connection.Query q = new Connection.Query("/users/" + userID + "/contactFolders");
         q.set("$filter", "displayName eq '" + escape(displayName) + "'");
         List<JSONObject> matches = conn.getList(q.toString(), null);
-        return matches.isEmpty() ? null : new ContactFolder(matches.get(0), userID, conn);
+        return matches.isEmpty() ? null : new ContactFolder(matches.get(0), userConn());
     }
 
 
@@ -222,7 +248,7 @@ public class User extends Node {
         JSONObject payload = new JSONObject();
         payload.set("displayName", displayName);
         JSONObject server = conn.post("/users/" + userID + "/contactFolders", payload);
-        return new ContactFolder(server, userID, conn);
+        return new ContactFolder(server, userConn());
     }
 
 
@@ -268,7 +294,7 @@ public class User extends Node {
         String userID = getID();
         ArrayList<EmailFolder> list = new ArrayList<>();
         for (JSONObject json : conn.getList("/users/" + userID + "/mailFolders", null)){
-            list.add(new EmailFolder(json, userID, conn));
+            list.add(new EmailFolder(json, userConn()));
         }
         return list;
     }
@@ -282,7 +308,7 @@ public class User extends Node {
    */
     public EmailFolder getMailFolder(String wellKnownNameOrId) throws GraphException {
         String userID = getID();
-        return new EmailFolder(conn.get("/users/" + userID + "/mailFolders/" + wellKnownNameOrId), userID, conn);
+        return new EmailFolder(conn.get("/users/" + userID + "/mailFolders/" + wellKnownNameOrId), userConn());
     }
 
 

@@ -41,6 +41,19 @@ public class Node {
 
 
   //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a Node bound to the given connection with only its Graph id set
+   *  (e.g. to reference an existing object by id without fetching it).
+   */
+    protected Node(String id, Connection conn){
+        json = new JSONObject();
+        if (id!=null) json.set("id", id);
+        this.conn = conn;
+    }
+
+
+  //**************************************************************************
   //** getID
   //**************************************************************************
   /** Returns the Graph <code>id</code>, or null for a new object not yet saved.

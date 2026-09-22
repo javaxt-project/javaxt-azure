@@ -20,11 +20,33 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Wraps a Graph contact folder for the given mailbox (userID), bound to the
-   *  connection used to reach it.
+  /** Wraps a Graph contact folder, bound to a user-scoped connection (see
+   *  {@link Connection#forUser}).
    */
-    public ContactFolder(JSONObject json, String userID, Connection conn){
-        super(json, userID, conn);
+    public ContactFolder(JSONObject json, Connection conn){
+        super(json, conn);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Binds to the mailbox's default contact folder
+   *  (<code>/users/{id}/contacts</code>) on the given user-scoped connection.
+   */
+    public ContactFolder(Connection conn){
+        super(new JSONObject(), conn);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Binds to a named contact folder by its id, on the given user-scoped
+   *  connection.
+   */
+    public ContactFolder(String folderId, Connection conn){
+        super(folderId, conn);
     }
 
 
@@ -185,10 +207,10 @@ public class ContactFolder extends Folder {
    */
     public List<ContactFolder> getChildFolders() throws GraphException {
         String url = (getID()==null)
-            ? "/users/" + userID + "/contactFolders"
-            : "/users/" + userID + "/contactFolders/" + getID() + "/childFolders";
+            ? "/users/" + getUserID() + "/contactFolders"
+            : "/users/" + getUserID() + "/contactFolders/" + getID() + "/childFolders";
         ArrayList<ContactFolder> list = new ArrayList<>();
-        for (JSONObject json : conn.getList(url, null)) list.add(new ContactFolder(json, userID, conn));
+        for (JSONObject json : conn.getList(url, null)) list.add(new ContactFolder(json, conn));
         return list;
     }
 
@@ -200,8 +222,8 @@ public class ContactFolder extends Folder {
    */
     private String contactsBase(){
         return (getID()==null)
-            ? "/users/" + userID + "/contacts"
-            : "/users/" + userID + "/contactFolders/" + getID() + "/contacts";
+            ? "/users/" + getUserID() + "/contacts"
+            : "/users/" + getUserID() + "/contactFolders/" + getID() + "/contacts";
     }
 
 
@@ -211,7 +233,7 @@ public class ContactFolder extends Folder {
   /** Returns the resource path for a single contact by id.
    */
     private String contactPath(String id){
-        return "/users/" + userID + "/contacts/" + id;
+        return "/users/" + getUserID() + "/contacts/" + id;
     }
 
 

@@ -18,11 +18,23 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a mail folder wrapping a Graph mailFolder resource for the given
-   *  user.
+  /** Wraps a Graph mailFolder resource, bound to a user-scoped connection (see
+   *  {@link Connection#forUser}).
    */
-    public EmailFolder(JSONObject json, String userID, Connection conn){
-        super(json, userID, conn);
+    public EmailFolder(JSONObject json, Connection conn){
+        super(json, conn);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Binds to a mail folder by well-known name (inbox, drafts, sentitems,
+   *  deleteditems, junkemail, archive, ...) or id, on the given user-scoped
+   *  connection. Folder metadata (counts) is not loaded until fetched.
+   */
+    public EmailFolder(String wellKnownNameOrId, Connection conn){
+        super(wellKnownNameOrId, conn);
     }
 
 
@@ -127,9 +139,9 @@ public class EmailFolder extends Folder {
   /** Returns the immediate child folders of this mail folder.
    */
     public List<EmailFolder> getChildFolders() throws GraphException {
-        String url = "/users/" + userID + "/mailFolders/" + getID() + "/childFolders";
+        String url = "/users/" + getUserID() + "/mailFolders/" + getID() + "/childFolders";
         ArrayList<EmailFolder> list = new ArrayList<>();
-        for (JSONObject json : conn.getList(url, null)) list.add(new EmailFolder(json, userID, conn));
+        for (JSONObject json : conn.getList(url, null)) list.add(new EmailFolder(json, conn));
         return list;
     }
 
@@ -140,7 +152,7 @@ public class EmailFolder extends Folder {
   /** Returns the base messages URL for this folder.
    */
     private String messagesBase(){
-        return "/users/" + userID + "/mailFolders/" + getID() + "/messages";
+        return "/users/" + getUserID() + "/mailFolders/" + getID() + "/messages";
     }
 
 
@@ -152,7 +164,7 @@ public class EmailFolder extends Folder {
     private Email bind(JSONObject json){
         Email m = new Email(json, conn);
         if (!json.get("id").isNull()){
-            m.setResourcePath("/users/" + userID + "/messages/" + json.get("id").toString());
+            m.setResourcePath("/users/" + getUserID() + "/messages/" + json.get("id").toString());
         }
         return m;
     }

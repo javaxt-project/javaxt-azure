@@ -45,6 +45,8 @@ public class Connection {
     private long maxBackoffMillis = 60000;
 
     private HttpClient client;
+    private String userID; //Optional user scope. Null for tenant-wide connection
+    private Connection parent; //User-scoped parent connection
 
 
   //**************************************************************************
@@ -95,6 +97,102 @@ public class Connection {
         if (credentials==null) throw new IllegalArgumentException("credentials is required");
         this.credentials = credentials;
         if (immutableIds) preferValues.add("IdType=\"ImmutableId\"");
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates an app-only connection scoped to the given user (mailbox), with
+   *  immutable ids enabled. Folders and calendars built from this connection
+   *  operate on that mailbox without a separate {@link #forUser} call.
+   */
+    public Connection(String userID, String tenantID, String clientID, String clientSecret) throws GraphException {
+        this(userID, tenantID, clientID, clientSecret, true);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates an app-only connection scoped to the given user (mailbox).
+   *  @param immutableIds when true, sets <code>Prefer: IdType="ImmutableId"</code>
+   *  on every request.
+   */
+    public Connection(String userID, String tenantID, String clientID, String clientSecret, boolean immutableIds) throws GraphException {
+        this(userID, new Credentials(tenantID, clientID, clientSecret), immutableIds);
+        credentials.getAuthorization(); //fail fast on bad credentials
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a connection scoped to the given user (mailbox) from the given
+   *  {@link Credentials}, with immutable ids enabled.
+   *  @param userID Email address
+   *  @param credentials Credentials used to connect to the Graph API
+   */
+    public Connection(String userID, Credentials credentials){
+        this(userID, credentials, true);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a connection scoped to the given user (mailbox) from the given
+   *  {@link Credentials}.
+   *  @param userID Email address
+   *  @param credentials Credentials used to connect to the Graph API
+   *  @param immutableIds If true, <code>Prefer: IdType="ImmutableId"</code>
+   *  is sent on every request.
+   */
+    public Connection(String userID, Credentials credentials, boolean immutableIds){
+        this(credentials, immutableIds);
+        this.userID = userID;
+    }
+
+
+  //**************************************************************************
+  //** Constructor (user-scoped view)
+  //**************************************************************************
+  /** Creates a user-scoped view that shares the parent's credentials, Prefer
+   *  values and retry policy, and delegates all transport to the parent.
+   */
+    private Connection(Connection parent, String userID){
+        this.credentials = parent.credentials;
+        this.preferValues.addAll(parent.preferValues);
+        this.maxRetries = parent.maxRetries;
+        this.defaultRetryMillis = parent.defaultRetryMillis;
+        this.maxBackoffMillis = parent.maxBackoffMillis;
+        this.parent = parent;
+        this.userID = userID;
+    }
+
+
+  //**************************************************************************
+  //** forUser
+  //**************************************************************************
+  /** Returns a lightweight user-scoped view of this connection, bound to the
+   *  given user id or UPN. The view shares this connection's token and transport
+   *  (no new sign-in, no new connection pool), so a sync service can create one
+   *  per mailbox cheaply. Folders and calendars constructed from a user-scoped
+   *  connection derive their mailbox from it.
+   */
+    public Connection forUser(String idOrUPN){
+        return new Connection(this, idOrUPN);
+    }
+
+
+  //**************************************************************************
+  //** getUserID
+  //**************************************************************************
+  /** Returns the user id/UPN this connection is scoped to, or null for a base
+   *  (tenant-wide) connection.
+   */
+    public String getUserID(){
+        return userID;
     }
 
 
@@ -242,6 +340,7 @@ public class Connection {
    *  code uses <code>java.net.http</code>.
    */
     protected Response send(String method, String url, Map<String, String> headers, byte[] body) throws GraphException {
+        if (parent!=null) return parent.send(method, url, headers, body);
         if (client==null){
             client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
@@ -285,6 +384,7 @@ public class Connection {
    *  delay.
    */
     protected void sleep(long millis) throws GraphException {
+        if (parent!=null){ parent.sleep(millis); return; }
         try{
             Thread.sleep(millis);
         }

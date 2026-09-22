@@ -15,18 +15,49 @@ import javaxt.json.*;
 
 public class Calendar extends Node {
 
-    private final String userID;
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Wraps a Graph calendar JSON payload, bound to a user-scoped connection
+   *  (see {@link Connection#forUser}) used for its event operations.
+   */
+    public Calendar(JSONObject json, Connection conn){
+        super(json, conn);
+        validate();
+    }
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Wraps a Graph calendar JSON payload for the given user id and binds it to
-   *  the connection used for its event operations.
+  /** Binds to a calendar by its id, on the given user-scoped connection.
    */
-    public Calendar(JSONObject json, String userID, Connection conn){
-        super(json, conn);
-        this.userID = userID;
+    public Calendar(String calendarID, Connection conn){
+        super(calendarID, conn);
+        validate();
+    }
+
+
+  //**************************************************************************
+  //** validate
+  //**************************************************************************
+  /** Ensures the connection is scoped to a user (mailbox).
+   */
+    private void validate(){
+        if (conn==null || conn.getUserID()==null){
+            throw new IllegalArgumentException(
+                "Calendar requires a user-scoped connection; use Connection.forUser(...)");
+        }
+    }
+
+
+  //**************************************************************************
+  //** getUserID
+  //**************************************************************************
+  /** Returns the id of the user (mailbox) that owns this calendar.
+   */
+    public String getUserID(){
+        return conn.getUserID();
     }
 
 
@@ -113,7 +144,7 @@ public class Calendar extends Node {
     public List<CalendarEvent> getEvents(javaxt.utils.Date start, javaxt.utils.Date end, EventQuery opts) throws GraphException {
         if (opts==null) opts = new EventQuery();
 
-        Connection.Query q = new Connection.Query("/users/" + userID + "/calendars/" + getID() + "/calendarView");
+        Connection.Query q = new Connection.Query("/users/" + getUserID() + "/calendars/" + getID() + "/calendarView");
         q.set("startDateTime", start.toISOString());
         q.set("endDateTime", end.toISOString());
         q.set("$top", opts.top!=null ? opts.top : 50);
@@ -149,7 +180,7 @@ public class Calendar extends Node {
             url = deltaLink;
         }
         else{
-            Connection.Query q = new Connection.Query("/users/" + userID + "/calendars/" + getID() + "/calendarView/delta");
+            Connection.Query q = new Connection.Query("/users/" + getUserID() + "/calendars/" + getID() + "/calendarView/delta");
             q.set("startDateTime", start.toISOString());
             q.set("endDateTime", end.toISOString());
             url = q.toString();
@@ -178,7 +209,7 @@ public class Calendar extends Node {
    *  {@link CalendarEvent}.
    */
     public CalendarEvent getEvent(String id) throws GraphException {
-        return bind(conn.get("/users/" + userID + "/events/" + id));
+        return bind(conn.get("/users/" + getUserID() + "/events/" + id));
     }
 
 
@@ -189,7 +220,7 @@ public class Calendar extends Node {
    *  in place with the server copy (id, changeKey, iCalUId, ...) and returned.
    */
     public CalendarEvent createEvent(CalendarEvent event) throws GraphException {
-        String url = "/users/" + userID + "/calendars/" + getID() + "/events";
+        String url = "/users/" + getUserID() + "/calendars/" + getID() + "/events";
         JSONObject server = conn.post(url, event.toJson());
         event.conn = conn;
         event.replaceJson(server);
@@ -223,7 +254,7 @@ public class Calendar extends Node {
     public CalendarEvent updateEvent(CalendarEvent event, boolean useIfMatch) throws GraphException {
         String id = event.getID();
         if (id==null) throw new GraphException("Cannot update an event without an id; use createEvent");
-        String url = "/users/" + userID + "/events/" + id;
+        String url = "/users/" + getUserID() + "/events/" + id;
 
         Map<String, String> headers = new LinkedHashMap<>();
         if (useIfMatch && event.getChangeKey()!=null) headers.put("If-Match", event.getChangeKey());
@@ -235,7 +266,7 @@ public class Calendar extends Node {
             event.setResourcePath(resourcePath(server));
         }
         else{
-            event.setResourcePath("/users/" + userID + "/events/" + id);
+            event.setResourcePath("/users/" + getUserID() + "/events/" + id);
             event.resetChanges();
         }
         return event;
@@ -251,7 +282,7 @@ public class Calendar extends Node {
    */
     public void deleteEvent(String id) throws GraphException {
         if (id==null) return;
-        conn.delete("/users/" + userID + "/events/" + id);
+        conn.delete("/users/" + getUserID() + "/events/" + id);
     }
 
 
@@ -264,7 +295,7 @@ public class Calendar extends Node {
     public void cancelEvent(String id, String comment) throws GraphException {
         JSONObject payload = new JSONObject();
         if (comment!=null) payload.set("comment", comment);
-        conn.post("/users/" + userID + "/events/" + id + "/cancel", payload);
+        conn.post("/users/" + getUserID() + "/events/" + id + "/cancel", payload);
     }
 
 
@@ -288,7 +319,7 @@ public class Calendar extends Node {
    */
     private String resourcePath(JSONObject json){
         if (json==null || json.get("id").isNull()) return null;
-        return "/users/" + userID + "/events/" + json.get("id").toString();
+        return "/users/" + getUserID() + "/events/" + json.get("id").toString();
     }
 
 
