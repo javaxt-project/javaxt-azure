@@ -86,6 +86,7 @@ public class EmailFolder extends Folder {
         else{
             if (opts.filter!=null) q.set("$filter", opts.filter);
             if (opts.orderBy!=null) q.set("$orderby", opts.orderBy);
+            if (opts.skip!=null && opts.skip>0) q.set("$skip", opts.skip);
         }
         String expand = Item.expandExtensions(opts.expandExtensions);
         if (expand!=null) q.set("$expand", expand);
@@ -173,14 +174,13 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** EmailQuery Class
   //**************************************************************************
-  /** Options for message queries: <code>$select</code>, open-extension
-   *  <code>$expand</code>, page size (<code>$top</code>), and either
-   *  <code>$filter</code>/<code>$orderby</code> or a full-text
-   *  <code>$search</code> (which disables filter/orderby). Setters chain.
+  /** Used to set options for message queries. Example:
+   *  <pre>setSkip(250).setTop(50).setLimit(50)</pre> for messages 251-300.
    */
     public static class EmailQuery {
 
         private Integer top;
+        private Integer skip;
         private Integer limit;
         private final List<String> select = new ArrayList<>();
         private final List<String> expandExtensions = new ArrayList<>();
@@ -189,65 +189,63 @@ public class EmailFolder extends Folder {
         private String search;
 
 
-      //**************************************************************************
-      //** setTop
-      //**************************************************************************
-      /** Page size ($top per request). Default 50.
+      /** Used to set the page size. Default is 50 records.
        */
         public EmailQuery setTop(Integer top){ this.top = top; return this; }
 
 
-      //**************************************************************************
-      //** setLimit
-      //**************************************************************************
-      /** Maximum number of messages to return in total; paging stops once
-       *  reached (so a large folder is never fully paged). Null means no limit.
+      /** Used to set the number of messages to skip before the first message
+       *  is returned. Use with setTop() and setLimit() to fetch a single page
+       *  at an arbitrary offset without downloading the messages before it.
+       */
+        public EmailQuery setSkip(Integer skip){ this.skip = skip; return this; }
+
+
+      /** Used to set the maximum number of messages to return in total. Null
+       *  value implies no limit.
        */
         public EmailQuery setLimit(Integer limit){ this.limit = limit; return this; }
 
 
-      //**************************************************************************
-      //** select
-      //**************************************************************************
-      /** Restricts the properties returned for each message ($select).
+      /** Used to restrict the properties returned for each message.
        */
         public EmailQuery select(String... properties){
-            if (properties!=null) for (String p : properties) if (p!=null) select.add(p);
+            if (properties!=null){
+                for (String p : properties){
+                    if (p!=null) select.add(p);
+                }
+            }
             return this;
         }
 
 
-      //**************************************************************************
-      //** expandExtension
-      //**************************************************************************
-      /** Expands the named open extensions on each message ($expand).
+      /** Used to expand the named open extensions on each message.
        */
         public EmailQuery expandExtension(String... extensionNames){
-            if (extensionNames!=null) for (String n : extensionNames) if (n!=null) expandExtensions.add(n);
+            if (extensionNames!=null){
+                for (String n : extensionNames){
+                    if (n!=null) expandExtensions.add(n);
+                }
+            }
             return this;
         }
 
 
-      //**************************************************************************
-      //** setFilter
-      //**************************************************************************
-      /** Sets an OData $filter expression (ignored when $search is set).
+      /** Used to set an filter expression. Note that this is ignored when
+       *  search is set.
        */
         public EmailQuery setFilter(String filter){ this.filter = filter; return this; }
 
 
-      //**************************************************************************
-      //** setOrderBy
-      //**************************************************************************
-      /** Sets an OData $orderby expression (ignored when $search is set).
+
+      /** Used to set an orderby expression. Note that this is ignored when
+       *  search is set.
        */
         public EmailQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
 
 
-      //**************************************************************************
-      //** setSearch
-      //**************************************************************************
-      /** Full-text search. Note: Graph disables $orderby/$count while searching.
+      /** Used for full-text search. Note that the Graph disables orderby and
+       *  count while searching.
        */
         public EmailQuery setSearch(String search){ this.search = search; return this; }
     }
@@ -272,25 +270,16 @@ public class EmailFolder extends Folder {
         }
 
 
-      //**************************************************************************
-      //** getEmails
-      //**************************************************************************
       /** Returns the messages added or changed since the previous sync.
        */
         public List<Email> getEmails(){ return messages; }
 
 
-      //**************************************************************************
-      //** getRemovedIds
-      //**************************************************************************
       /** Returns the ids of messages removed since the previous sync.
        */
         public List<String> getRemovedIds(){ return removedIds; }
 
 
-      //**************************************************************************
-      //** getDeltaLink
-      //**************************************************************************
       /** Returns the delta link to persist and pass to the next sync.
        */
         public String getDeltaLink(){ return deltaLink; }
