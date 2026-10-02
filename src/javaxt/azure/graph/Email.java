@@ -331,25 +331,59 @@ public class Email extends Item {
   //**************************************************************************
   //** move
   //**************************************************************************
-  /** Moves the message to another folder. Note: Graph assigns the moved copy a
-   *  new id, so re-fetch if you need to operate on it further.
+  /** Moves the message to another folder. Note: Graph assigns the moved copy
+   *  a new id, so re-fetch if you need to operate on it further.
+   *  @param destinationFolderId A folder id or well-known folder name (e.g.
+   *  "inbox", "archive", "deleteditems", "junkemail").
    */
-    public void move(String destinationFolderId) throws GraphException {
+    public Email move(String destinationFolderId) throws GraphException {
         requirePath();
         JSONObject payload = new JSONObject();
         payload.set("destinationId", destinationFolderId);
-        conn.post(resourcePath + "/move", payload);
+        JSONObject server = conn.post(resourcePath + "/move", payload);
+
+        Email moved = new Email(server, conn);
+        if (!server.get("id").isNull()){
+            moved.setResourcePath(resourcePath.substring(0, resourcePath.lastIndexOf("/messages/")) +
+                "/messages/" + server.get("id").toString());
+        }
+        return moved;
+    }
+
+
+  //**************************************************************************
+  //** moveToDeletedItems
+  //**************************************************************************
+  /** Moves the message to the Deleted Items folder.
+   */
+    public Email moveToDeletedItems() throws GraphException {
+        return move("deleteditems");
     }
 
 
   //**************************************************************************
   //** delete
   //**************************************************************************
-  /** Deletes the message (moves it to Deleted Items).
+  /** Deletes the message. This is a soft-delete. The message is moved into
+   *  the Recoverable Items "Deletions" folder. The message no longer appears
+   *  in any mail folder, but can be recovered in Outlook until the mailbox's
+   *  retention period expires (14 days by default).
    */
     public void delete() throws GraphException {
         requirePath();
         conn.delete(resourcePath);
+    }
+
+
+  //**************************************************************************
+  //** permanentDelete
+  //**************************************************************************
+  /** Permanently deletes the message. The message is moved to the Recoverable
+   *  Items "Purges" folder, which the user cannot recover. Use with care.
+   */
+    public void permanentDelete() throws GraphException {
+        requirePath();
+        conn.post(resourcePath + "/permanentDelete", new JSONObject());
     }
 
 
