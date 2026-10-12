@@ -6,12 +6,7 @@ import javaxt.json.*;
 //**  ContactFolder
 //******************************************************************************
 /**
- *   Represents a Microsoft Graph contact folder and the operations on the
- *   contacts it holds. The mailbox's default folder (obtained via
- *   {@link User#getDefaultContactFolder()}) reads/writes contacts under
- *   <code>/users/{id}/contacts</code>; named folders use
- *   <code>/users/{id}/contactFolders/{folderId}/contacts</code>. Individual
- *   contacts are addressed by their (mailbox-unique) id regardless of folder.
+ *   Represents a Microsoft Graph contact folder
  *
  ******************************************************************************/
 
@@ -21,7 +16,7 @@ public class ContactFolder extends Folder {
   //** Constructor
   //**************************************************************************
   /** Wraps a Graph contact folder, bound to a user-scoped connection (see
-   *  {@link Connection#forUser}).
+   *  Connection.forUser).
    */
     public ContactFolder(JSONObject json, Connection conn){
         super(json, conn);
@@ -63,21 +58,19 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** getContacts
   //**************************************************************************
-  /** Returns the contacts in this folder, following paging to the end.
+  /** Returns the contacts in this folder, following paging to the end (or
+   *  until the query's limit, if any, is reached).
    */
     public List<Contact> getContacts(ContactQuery opts) throws GraphException {
         if (opts==null) opts = new ContactQuery();
 
         Connection.Query q = new Connection.Query(contactsBase());
-        q.set("$top", opts.top!=null ? opts.top : 50);
-        if (!opts.select.isEmpty()) q.set("$select", String.join(",", opts.select));
-        if (opts.filter!=null) q.set("$filter", opts.filter);
-        if (opts.orderBy!=null) q.set("$orderby", opts.orderBy);
-        String expand = Item.expandExtensions(opts.expandExtensions);
-        if (expand!=null) q.set("$expand", expand);
+        opts.apply(q);
 
         ArrayList<Contact> contacts = new ArrayList<>();
-        for (JSONObject json : conn.getList(q.toString(), null)) contacts.add(bind(json));
+        for (JSONObject json : opts.getItems(conn, getUserID(), q.toString(), null)){
+            contacts.add(bind(json));
+        }
         return contacts;
     }
 
@@ -129,7 +122,7 @@ public class ContactFolder extends Folder {
   /** PATCHes the contact's pending changes and returns it updated with the
    *  server copy. Read-only keys are stripped from the body. The write is
    *  unconditional (last-writer-wins) by default; use
-   *  {@link #updateContact(Contact,boolean)} to opt into optimistic concurrency.
+   *  updateContact(Contact,boolean) to opt into optimistic concurrency.
    */
     public Contact updateContact(Contact contact) throws GraphException {
         return updateContact(contact, false);
@@ -264,63 +257,35 @@ public class ContactFolder extends Folder {
   //**************************************************************************
   //** ContactQuery Class
   //**************************************************************************
-  /** Options for contact queries: <code>$select</code>, open-extension
-   *  <code>$expand</code>, page size (<code>$top</code>), <code>$filter</code>
-   *  and <code>$orderby</code>. Setters chain.
+  /** Options for contact queries (see ItemQuery for the common
+   *  options), plus <code>$skip</code>, a limit on the number of contacts
+   *  returned, and <code>$search</code>. Setters chain.
    */
-    public static class ContactQuery {
-
-        private Integer top;
-        private final List<String> select = new ArrayList<>();
-        private final List<String> expandExtensions = new ArrayList<>();
-        private String filter;
-        private String orderBy;
+    public static class ContactQuery extends ItemQuery<ContactQuery> {
 
 
-      //**********************************************************************
-      //** setTop
-      //**********************************************************************
-      /** Sets the page size (<code>$top</code>) for the query. Returns this query for chaining.
+      /** Sets the number of contacts to skip (<code>$skip</code>). Use with
+       *  setTop() and setLimit() to fetch a single page at an offset. Ignored
+       *  when searching (not supported by Graph).
        */
-        public ContactQuery setTop(Integer top){ this.top = top; return this; }
+        public ContactQuery setSkip(Integer skip){ return super.setSkip(skip); }
 
 
-      //**********************************************************************
-      //** select
-      //**********************************************************************
-      /** Adds one or more properties to the <code>$select</code> list. Returns this query for chaining.
+      /** Sets the maximum number of contacts to return in total (paging stops
+       *  once it's reached). Null for no limit (the default).
        */
-        public ContactQuery select(String... properties){
-            if (properties!=null) for (String p : properties) if (p!=null) select.add(p);
-            return this;
-        }
+        public ContactQuery setLimit(Integer limit){ return super.setLimit(limit); }
 
 
-      //**********************************************************************
-      //** expandExtension
-      //**********************************************************************
-      /** Adds one or more open-extension names to <code>$expand</code>. Returns this query for chaining.
+      /** Sets the text to search for (<code>$search</code>, KQL: matches the
+       *  start of any word in the name, company, title, email addresses, and
+       *  phone numbers). The text is quoted and escaped. The filter, orderby,
+       *  and skip options are ignored while searching (Graph doesn't allow
+       *  $orderby or $skip with $search). If the connection uses immutable
+       *  ids (the default), the results use immutable ids too (see
+       *  ItemQuery).
        */
-        public ContactQuery expandExtension(String... extensionNames){
-            if (extensionNames!=null) for (String n : extensionNames) if (n!=null) expandExtensions.add(n);
-            return this;
-        }
-
-
-      //**********************************************************************
-      //** setFilter
-      //**********************************************************************
-      /** Sets the <code>$filter</code> expression for the query. Returns this query for chaining.
-       */
-        public ContactQuery setFilter(String filter){ this.filter = filter; return this; }
-
-
-      //**********************************************************************
-      //** setOrderBy
-      //**********************************************************************
-      /** Sets the <code>$orderby</code> expression for the query. Returns this query for chaining.
-       */
-        public ContactQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
+        public ContactQuery setSearch(String search){ return super.setSearch(search); }
     }
 
 
@@ -343,25 +308,16 @@ public class ContactFolder extends Folder {
         }
 
 
-      //**********************************************************************
-      //** getContacts
-      //**********************************************************************
       /** Returns the contacts added or changed since the last sync.
        */
         public List<Contact> getContacts(){ return contacts; }
 
 
-      //**********************************************************************
-      //** getRemovedIds
-      //**********************************************************************
       /** Returns the ids of contacts removed since the last sync.
        */
         public List<String> getRemovedIds(){ return removedIds; }
 
 
-      //**********************************************************************
-      //** getDeltaLink
-      //**********************************************************************
       /** Returns the delta link to persist and pass to the next sync.
        */
         public String getDeltaLink(){ return deltaLink; }
