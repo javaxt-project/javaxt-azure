@@ -15,17 +15,18 @@ import javaxt.json.*;
 //******************************************************************************
 /**
  *   Represents an authenticated connection to Microsoft Graph. Handles bearer
- *   token acquisition (via {@link Credentials}), request execution, transient
- *   error retry with <code>Retry-After</code> handling, and paging/delta
- *   traversal of Graph collections.
+ *   token acquisition (via Credentials), request execution, transient error
+ *   retry with <code>Retry-After</code> handling, and paging/delta traversal
+ *   of Graph collections.
  *
  *   <p>A single Connection is thread safe and is intended to be shared by a
- *   multi-threaded sync service; model objects it returns are not thread safe.</p>
+ *   multi-threaded sync service; model objects it returns are not thread safe.
+ *   </p>
  *
  *   <p>Example (app-only, client credentials):</p>
  *   <pre>
  *   Connection conn = new Connection(tenantID, clientID, clientSecret);
- *   User user = User.findByEmail("therapist@contoso.com", conn);
+ *   User user = User.findByEmail("user@contoso.com", conn);
  *   </pre>
  *
  ******************************************************************************/
@@ -33,7 +34,7 @@ import javaxt.json.*;
 public class Connection {
 
     private final String graphURL = "https://graph.microsoft.com/v1.0";
-
+    private static final String IMMUTABLE_ID = "IdType=\"ImmutableId\"";
     private final Credentials credentials;
 
   //Prefer header values appended to every request (comma joined into one header)
@@ -53,8 +54,8 @@ public class Connection {
   //** Constructor
   //**************************************************************************
   /** Creates an app-only connection using the client-credentials grant, with
-   *  <code>Prefer: IdType="ImmutableId"</code> enabled by default (immutable ids
-   *  are required when ids are persisted and compared across sessions).
+   *  <code>Prefer: IdType="ImmutableId"</code> enabled by default (immutable
+   *  ids are required when ids are persisted and compared across sessions).
    */
     public Connection(String tenantID, String clientID, String clientSecret) throws GraphException {
         this(tenantID, clientID, clientSecret, true);
@@ -78,7 +79,7 @@ public class Connection {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a connection from the given {@link Credentials} (app-only or
+  /** Creates a connection from the given Credentials (app-only or
    *  pre-authenticated), with immutable ids enabled.
    */
     public Connection(Credentials credentials){
@@ -89,14 +90,14 @@ public class Connection {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a connection from the given {@link Credentials}. When
-   *  <code>immutableIds</code> is true, <code>Prefer: IdType="ImmutableId"</code>
-   *  is sent on every request.
+  /** Creates a connection from the given Credentials. When <code>immutableIds</code>
+   *  is true, <code>Prefer: IdType="ImmutableId"</code> is sent on every
+   *  request.
    */
     public Connection(Credentials credentials, boolean immutableIds){
         if (credentials==null) throw new IllegalArgumentException("credentials is required");
         this.credentials = credentials;
-        if (immutableIds) preferValues.add("IdType=\"ImmutableId\"");
+        if (immutableIds) preferValues.add(IMMUTABLE_ID);
     }
 
 
@@ -105,7 +106,7 @@ public class Connection {
   //**************************************************************************
   /** Creates an app-only connection scoped to the given user (mailbox), with
    *  immutable ids enabled. Folders and calendars built from this connection
-   *  operate on that mailbox without a separate {@link #forUser} call.
+   *  operate on that mailbox without a separate forUser call.
    */
     public Connection(String userID, String tenantID, String clientID, String clientSecret) throws GraphException {
         this(userID, tenantID, clientID, clientSecret, true);
@@ -129,7 +130,7 @@ public class Connection {
   //** Constructor
   //**************************************************************************
   /** Creates a connection scoped to the given user (mailbox) from the given
-   *  {@link Credentials}, with immutable ids enabled.
+   *  Credentials, with immutable ids enabled.
    *  @param userID Email address
    *  @param credentials Credentials used to connect to the Graph API
    */
@@ -142,7 +143,7 @@ public class Connection {
   //** Constructor
   //**************************************************************************
   /** Creates a connection scoped to the given user (mailbox) from the given
-   *  {@link Credentials}.
+   *  Credentials.
    *  @param userID Email address
    *  @param credentials Credentials used to connect to the Graph API
    *  @param immutableIds If true, <code>Prefer: IdType="ImmutableId"</code>
@@ -175,10 +176,10 @@ public class Connection {
   //** forUser
   //**************************************************************************
   /** Returns a lightweight user-scoped view of this connection, bound to the
-   *  given user id or UPN. The view shares this connection's token and transport
-   *  (no new sign-in, no new connection pool), so a sync service can create one
-   *  per mailbox cheaply. Folders and calendars constructed from a user-scoped
-   *  connection derive their mailbox from it.
+   *  given user id or UPN. The view shares this connection's token and
+   *  transport (no new sign-in, no new connection pool), so a sync service
+   *  can create one per mailbox cheaply. Folders and calendars constructed
+   *  from a user-scoped connection derive their mailbox from it.
    */
     public Connection forUser(String idOrUPN){
         return new Connection(this, idOrUPN);
@@ -210,10 +211,25 @@ public class Connection {
   //**************************************************************************
   //** getPreferValues
   //**************************************************************************
-  /** Returns an unmodifiable view of the Prefer header values sent on every request.
+  /** Returns an unmodifiable view of the Prefer header values sent on every
+   *  request.
    */
     public List<String> getPreferValues(){
         return Collections.unmodifiableList(preferValues);
+    }
+
+
+  //**************************************************************************
+  //** usesImmutableIds
+  //**************************************************************************
+  /** Returns true if this connection sends <code>Prefer: IdType="ImmutableId"</code>
+   *  on every request (the default). Note that Graph ignores this preference
+   *  for <code>$search</code> queries, which return regular REST ids; the
+   *  library translates those ids so callers get immutable ids consistently
+   *  (see ItemQuery).
+   */
+    public boolean usesImmutableIds(){
+        return preferValues.contains(IMMUTABLE_ID);
     }
 
 
@@ -250,7 +266,8 @@ public class Connection {
   //**************************************************************************
   //** post
   //**************************************************************************
-  /** Issues a POST with a JSON body; returns the parsed response (empty for 202/204).
+  /** Issues a POST with a JSON body; returns the parsed response (empty for
+   *  202/204 responses).
    */
     public JSONObject post(String url, JSONObject payload) throws GraphException {
         return execute("POST", url, payload, null).toJson();
@@ -270,7 +287,8 @@ public class Connection {
   //**************************************************************************
   //** delete
   //**************************************************************************
-  /** Issues a DELETE; succeeds on any 2xx, throws a {@link GraphException} (e.g. 404) otherwise.
+  /** Issues a DELETE; succeeds on any 2xx, throws a GraphException (e.g. 404)
+   *  otherwise.
    */
     public void delete(String url) throws GraphException {
         execute("DELETE", url, null, null);
@@ -280,7 +298,8 @@ public class Connection {
   //**************************************************************************
   //** getBytes
   //**************************************************************************
-  /** Issues a GET and returns the raw response body (e.g. attachment/$value content).
+  /** Issues a GET and returns the raw response body (e.g. attachment/$value
+   *  content).
    */
     public byte[] getBytes(String url) throws GraphException {
         return execute("GET", url, null, null).getBody();
@@ -291,10 +310,10 @@ public class Connection {
   //** execute
   //**************************************************************************
   /** Executes an arbitrary request with optional extra headers. Any 2xx status
-   *  is success; 429/503/504 are retried (honouring <code>Retry-After</code>)
+   *  is success; 429/503/504 are retried (honoring <code>Retry-After</code>)
    *  with exponential backoff; a 401 refreshes the token and retries once. A
-   *  {@link GraphException} carrying the status, Graph error code and request-id
-   *  is thrown on non-transient failures or once retries are exhausted.
+   *  GraphException carrying the status, Graph error code and request-id is
+   *  thrown on non-transient failures or once retries are exhausted.
    */
     public Response execute(String method, String url, JSONObject payload, Map<String, String> headers) throws GraphException {
         String fullURL = resolve(url);
@@ -335,8 +354,8 @@ public class Connection {
   //**************************************************************************
   //** send
   //**************************************************************************
-  /** Performs a single HTTP request and returns the {@link Response}. This is
-   *  the seam unit tests override to replay canned responses offline; production
+  /** Performs a single HTTP request and returns the Response. This is the
+   *  seam unit tests override to replay canned responses offline; production
    *  code uses <code>java.net.http</code>.
    */
     protected Response send(String method, String url, Map<String, String> headers, byte[] body) throws GraphException {
@@ -427,7 +446,7 @@ public class Connection {
   //**************************************************************************
   //** retryWaitMillis
   //**************************************************************************
-  /** Returns the delay before the next retry, honouring <code>Retry-After</code>
+  /** Returns the delay before the next retry, honoring <code>Retry-After</code>
    *  when present and otherwise using capped exponential backoff.
    */
     private long retryWaitMillis(Response response, int attempt){
@@ -459,7 +478,7 @@ public class Connection {
   //**************************************************************************
   //** getPage
   //**************************************************************************
-  /** Same as {@link #getPage(String)} but sends the given extra headers (e.g. a
+  /** Same as getPage(String) but sends the given extra headers (e.g. a
    *  per-request <code>Prefer</code>) on every page request.
    */
     public Iterable<JSONObject> getPage(final String url, final Map<String, String> headers){
@@ -505,8 +524,8 @@ public class Connection {
   //**************************************************************************
   //** getDelta
   //**************************************************************************
-  /** Follows a delta query with the given extra headers, returning the collected
-   *  items and the final deltaLink.
+  /** Follows a delta query with the given extra headers, returning the
+   *  collected items and the final deltaLink.
    */
     public Delta getDelta(String url, Map<String, String> headers) throws GraphException {
         ArrayList<JSONObject> items = new ArrayList<>();
@@ -550,7 +569,7 @@ public class Connection {
   //** getResponse (compatibility)
   //**************************************************************************
   /** @deprecated Retained so the existing SharePoint classes keep compiling.
-   *  Use {@link #get(String)}.
+   *  Use get(String).
    */
     @Deprecated
     public JSONObject getResponse(String url) throws GraphException {
@@ -568,10 +587,8 @@ public class Connection {
         private JSONObject nextItem;
 
 
-      //**********************************************************************
-      //** Constructor
-      //**********************************************************************
-      /** Creates an iterator that lazily pages through the collection at the URL.
+      /** Creates an iterator that lazily pages through the collection at the
+       *  URL.
        */
         PageIterator(String url, Map<String, String> headers){
             this.headers = headers;
@@ -579,10 +596,8 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** hasNext
-      //**********************************************************************
-      /** Returns true if another item is available, fetching the next page if needed.
+      /** Returns true if another item is available, fetching the next page if
+       *  needed.
        */
         public boolean hasNext(){
             if (nextItem!=null) return true;
@@ -592,9 +607,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** next
-      //**********************************************************************
       /** Returns the next item, or throws NoSuchElementException if none.
        */
         public JSONObject next(){
@@ -604,11 +616,8 @@ public class Connection {
             return item;
         }
 
-
-      //**********************************************************************
-      //** advance
-      //**********************************************************************
-      /** Returns the next item from the current page, following nextLink as needed.
+      /** Returns the next item from the current page, following nextLink as
+       *  needed.
        */
         private JSONObject advance() throws GraphException {
             while (true){
@@ -637,9 +646,7 @@ public class Connection {
         private final Map<String, List<String>> headers;
         private final byte[] body;
 
-      //**********************************************************************
-      //** Constructor
-      //**********************************************************************
+
       /** Creates a response from a status code, header map and raw body.
        */
         public Response(int status, Map<String, List<String>> headers, byte[] body){
@@ -649,42 +656,28 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** getStatus
-      //**********************************************************************
       /** Returns the HTTP status code.
        */
         public int getStatus(){ return status; }
 
 
-      //**********************************************************************
-      //** getHeaders
-      //**********************************************************************
       /** Returns the response headers, keyed by header name.
        */
         public Map<String, List<String>> getHeaders(){ return headers; }
 
 
-      //**********************************************************************
-      //** getBody
-      //**********************************************************************
       /** Returns the raw response body bytes (may be null).
        */
         public byte[] getBody(){ return body; }
 
 
-      //**********************************************************************
-      //** isEmpty
-      //**********************************************************************
       /** Returns true when the response has no body.
        */
         public boolean isEmpty(){ return body==null || body.length==0; }
 
 
-      //**********************************************************************
-      //** getHeader
-      //**********************************************************************
-      /** Returns the first value of the given header (case insensitive), or null.
+      /** Returns the first value of the given header (case insensitive), or
+       *  null.
        */
         public String getHeader(String name){
             if (name==null) return null;
@@ -698,9 +691,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** toJson
-      //**********************************************************************
       /** Parses the body as JSON; returns an empty object for an empty body.
        */
         public JSONObject toJson(){
@@ -709,10 +699,8 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** toString
-      //**********************************************************************
-      /** Returns a human-readable summary: the status line and, if present, the body.
+      /** Returns a human-readable summary: the status line and, if present,
+       *  the body.
        */
         public String toString(){
             return "HTTP " + status + (isEmpty() ? "" : "\n" + new String(body, UTF_8));
@@ -725,17 +713,16 @@ public class Connection {
   //**************************************************************************
   /** Raw result of a delta query: every changed item collected across the
    *  nextLink chain plus the final deltaLink. Deleted items carry an
-   *  <code>@removed</code> marker (see {@link #isRemoved}).
+   *  <code>@removed</code> marker (see isRemoved).
    */
     public static class Delta {
 
         private final List<JSONObject> items;
         private final String deltaLink;
 
-      //**********************************************************************
-      //** Constructor
-      //**********************************************************************
-      /** Creates a delta result from the collected items and the final deltaLink.
+
+      /** Creates a delta result from the collected items and the final
+       *  deltaLink.
        */
         public Delta(List<JSONObject> items, String deltaLink){
             this.items = (items==null) ? new ArrayList<>() : items;
@@ -743,25 +730,18 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** getItems
-      //**********************************************************************
       /** Returns every changed item collected across the nextLink chain.
        */
         public List<JSONObject> getItems(){ return items; }
 
 
-      //**********************************************************************
-      //** getDeltaLink
-      //**********************************************************************
-      /** Returns the final <code>@odata.deltaLink</code> to use for the next sync, or null.
+
+      /** Returns the final <code>@odata.deltaLink</code> to use for the next
+       *  sync, or null.
        */
         public String getDeltaLink(){ return deltaLink; }
 
 
-      //**********************************************************************
-      //** isRemoved
-      //**********************************************************************
       /** Returns true if the given item is a deletion, i.e. carries an
        *  <code>@removed</code> marker.
        */
@@ -783,21 +763,17 @@ public class Connection {
         private final String path;
         private final LinkedHashMap<String, String> params = new LinkedHashMap<>();
 
-      //**********************************************************************
-      //** Constructor
-      //**********************************************************************
-      /** Creates a Query for the given URL path (query parameters added via set).
+
+      /** Creates a Query for the given URL path (query parameters added via
+       *  set).
        */
         public Query(String path){
             this.path = (path==null) ? "" : path;
         }
 
 
-      //**********************************************************************
-      //** set
-      //**********************************************************************
-      /** Sets a query parameter; a null value removes the key. Returns this Query
-       *  for chaining.
+      /** Sets a query parameter; a null value removes the key. Returns this
+       *  Query for chaining.
        */
         public Query set(String key, String value){
             if (key==null) return this;
@@ -807,9 +783,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** set
-      //**********************************************************************
       /** Sets an integer query parameter. Returns this Query for chaining.
        */
         public Query set(String key, int value){
@@ -817,9 +790,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** has
-      //**********************************************************************
       /** Returns true if the given query parameter has been set.
        */
         public boolean has(String key){
@@ -827,9 +797,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** toString
-      //**********************************************************************
       /** Returns the assembled path and percent-encoded query string.
        */
         public String toString(){
@@ -845,9 +812,6 @@ public class Connection {
         }
 
 
-      //**********************************************************************
-      //** encode
-      //**********************************************************************
       /** Percent-encodes a query value; spaces become %20 (not "+").
        */
         public static String encode(String value){
