@@ -6,17 +6,13 @@ import javaxt.json.*;
 //**  User
 //******************************************************************************
 /**
- *   Represents a Microsoft Graph user (mailbox owner) and is the entry point
- *   for that user's calendars.
+ *   Represents a Microsoft Graph user (mailbox owner)
  *
  ******************************************************************************/
 
 public class User extends Node {
 
     private static final String USER_SELECT = "id,mail,userPrincipalName,displayName";
-
-  //A user-scoped view of the connection, used to bind this user's folders and
-  //calendars to their mailbox (created lazily, shares the base token/transport).
     private Connection userConn;
 
 
@@ -34,8 +30,9 @@ public class User extends Node {
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /** Returns a connection scoped to this user's mailbox (a lightweight view of
-   *  the connection this User was created with; shares its token and transport).
+  /** Returns a connection scoped to this user's mailbox (a lightweight view
+   *  of the connection this User was created with; shares its token and
+   *  transport).
    */
     public Connection getConnection(){
         if (userConn==null) userConn = conn.forUser(getID());
@@ -46,7 +43,7 @@ public class User extends Node {
   //**************************************************************************
   //** userConn
   //**************************************************************************
-  /** Internal alias for {@link #getConnection()} used when binding folders.
+  /** Internal alias for getConnection() used when binding folders.
    */
     private Connection userConn(){
         return getConnection();
@@ -287,7 +284,7 @@ public class User extends Node {
   //**************************************************************************
   //** getMailFolders
   //**************************************************************************
-  /** Returns the top-level mail folders. Use {@link EmailFolder#getChildFolders()}
+  /** Returns the top-level mail folders. Use EmailFolder.getChildFolders()
    *  to descend the hierarchy.
    */
     public List<EmailFolder> getMailFolders() throws GraphException {
@@ -322,6 +319,24 @@ public class User extends Node {
         Email m = new Email(conn.get("/users/" + userID + "/messages/" + id), conn);
         m.setResourcePath("/users/" + userID + "/messages/" + id);
         return m;
+    }
+
+
+  //**************************************************************************
+  //** getImmutableIds
+  //**************************************************************************
+  /** Translates regular (REST) ids of items in this mailbox (messages,
+   *  events, contacts, tasks, attachments) to immutable ids. Useful to
+   *  migrate ids that were stored before immutable ids were enabled.
+   *  Immutable ids don't change when an item is moved to another folder.
+   *  Translates up to 1,000 ids per request. Requires the User.Read.All
+   *  application permission (User.ReadBasic.All delegated).
+   *  @return Map of each given id to its immutable id, in the order given.
+   *  Ids that couldn't be translated (e.g. the item no longer exists) are not
+   *  in the map.
+   */
+    public Map<String, String> getImmutableIds(Collection<String> ids) throws GraphException {
+        return ItemQuery.getImmutableIds(conn, getID(), ids);
     }
 
 
