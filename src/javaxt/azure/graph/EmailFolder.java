@@ -6,10 +6,10 @@ import javaxt.json.*;
 //**  EmailFolder
 //******************************************************************************
 /**
- *   Represents a Microsoft Graph mail folder and the operations on the messages
- *   it holds. Well-known folders (inbox, drafts, sentitems, deleteditems,
- *   junkemail, archive) are obtained via {@link User#getMailFolder(String)};
- *   messages are addressed by their (mailbox-unique) id regardless of folder.
+ *   Represents a Microsoft Graph mail folder. Well-known folders (inbox,
+ *   drafts, sentitems, deleteditems, junkemail, archive) are obtained via the
+ *   User.getMailFolder(String) method. Messages are addressed by their
+ *  (mailbox-unique) id regardless of folder.
  *
  ******************************************************************************/
 
@@ -71,39 +71,19 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** getEmails
   //**************************************************************************
-  /** Returns the messages in this folder, following paging to the end.
+  /** Returns the messages in this folder. Pages lazily and stops once the
+   *  query's limit (if any) is reached, so listing a large mailbox never
+   *  pages the whole folder unintentionally.
    */
     public List<Email> getEmails(EmailQuery opts) throws GraphException {
         if (opts==null) opts = new EmailQuery();
 
         Connection.Query q = new Connection.Query(messagesBase());
-        q.set("$top", opts.top!=null ? opts.top : 50);
-        if (!opts.select.isEmpty()) q.set("$select", String.join(",", opts.select));
-        if (opts.search!=null){
-            //$search disables $orderby and $count
-            q.set("$search", "\"" + opts.search + "\"");
-        }
-        else{
-            if (opts.filter!=null) q.set("$filter", opts.filter);
-            if (opts.orderBy!=null) q.set("$orderby", opts.orderBy);
-            if (opts.skip!=null && opts.skip>0) q.set("$skip", opts.skip);
-        }
-        String expand = Item.expandExtensions(opts.expandExtensions);
-        if (expand!=null) q.set("$expand", expand);
+        opts.apply(q);
 
-      //Page lazily and stop once the requested limit is reached, so listing a
-      //large mailbox never pages the whole folder unintentionally.
-        int limit = (opts.limit==null) ? Integer.MAX_VALUE : opts.limit;
         ArrayList<Email> messages = new ArrayList<>();
-        try{
-            for (JSONObject json : conn.getPage(q.toString(), null)){
-                messages.add(bind(json));
-                if (messages.size() >= limit) break;
-            }
-        }
-        catch(RuntimeException e){
-            if (e.getCause() instanceof GraphException) throw (GraphException) e.getCause();
-            throw e;
+        for (JSONObject json : opts.getItems(conn, getUserID(), q.toString(), null)){
+            messages.add(bind(json));
         }
         return messages;
     }
@@ -174,80 +154,34 @@ public class EmailFolder extends Folder {
   //**************************************************************************
   //** EmailQuery Class
   //**************************************************************************
-  /** Used to set options for message queries. Example:
-   *  <pre>setSkip(250).setTop(50).setLimit(50)</pre> for messages 251-300.
+  /** Used to set options for message queries (see ItemQuery for the
+   *  common options). Example: <pre>setSkip(250).setTop(50).setLimit(50)</pre>
+   *  for messages 251-300.
    */
-    public static class EmailQuery {
-
-        private Integer top;
-        private Integer skip;
-        private Integer limit;
-        private final List<String> select = new ArrayList<>();
-        private final List<String> expandExtensions = new ArrayList<>();
-        private String filter;
-        private String orderBy;
-        private String search;
-
-
-      /** Used to set the page size. Default is 50 records.
-       */
-        public EmailQuery setTop(Integer top){ this.top = top; return this; }
+    public static class EmailQuery extends ItemQuery<EmailQuery> {
 
 
       /** Used to set the number of messages to skip before the first message
        *  is returned. Use with setTop() and setLimit() to fetch a single page
        *  at an arbitrary offset without downloading the messages before it.
+       *  Ignored when searching.
        */
-        public EmailQuery setSkip(Integer skip){ this.skip = skip; return this; }
+        public EmailQuery setSkip(Integer skip){ return super.setSkip(skip); }
 
 
       /** Used to set the maximum number of messages to return in total. Null
        *  value implies no limit.
        */
-        public EmailQuery setLimit(Integer limit){ this.limit = limit; return this; }
+        public EmailQuery setLimit(Integer limit){ return super.setLimit(limit); }
 
 
-      /** Used to restrict the properties returned for each message.
+      /** Used for full-text search (KQL, matches the start of words in the
+       *  sender, recipients, subject, and body). The text is quoted and
+       *  escaped. Note that the Graph disables filter, orderby, skip, and
+       *  count while searching. If the connection uses immutable ids (the
+       *  default), the results use immutable ids too (see ItemQuery).
        */
-        public EmailQuery select(String... properties){
-            if (properties!=null){
-                for (String p : properties){
-                    if (p!=null) select.add(p);
-                }
-            }
-            return this;
-        }
-
-
-      /** Used to expand the named open extensions on each message.
-       */
-        public EmailQuery expandExtension(String... extensionNames){
-            if (extensionNames!=null){
-                for (String n : extensionNames){
-                    if (n!=null) expandExtensions.add(n);
-                }
-            }
-            return this;
-        }
-
-
-      /** Used to set an filter expression. Note that this is ignored when
-       *  search is set.
-       */
-        public EmailQuery setFilter(String filter){ this.filter = filter; return this; }
-
-
-
-      /** Used to set an orderby expression. Note that this is ignored when
-       *  search is set.
-       */
-        public EmailQuery setOrderBy(String orderBy){ this.orderBy = orderBy; return this; }
-
-
-      /** Used for full-text search. Note that the Graph disables orderby and
-       *  count while searching.
-       */
-        public EmailQuery setSearch(String search){ this.search = search; return this; }
+        public EmailQuery setSearch(String search){ return super.setSearch(search); }
     }
 
 
