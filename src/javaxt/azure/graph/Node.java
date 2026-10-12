@@ -6,19 +6,9 @@ import javaxt.json.*;
 //**  Node
 //******************************************************************************
 /**
- *   Base class for all Graph model objects. Each Node is a thin wrapper over
- *   the JSON it was loaded from, so callers can always reach properties the
- *   library has not wrapped yet via {@link #get(String)} / {@link #set(String,Object)}
- *   / {@link #toJson()}.
- *
- *   <p>Node tracks which keys have been {@link #set(String,Object) set} since it
- *   was loaded so that update operations can PATCH only the changed properties
- *   ({@link #getChanges()}).</p>
- *
- *   <p><b>Note on clearing properties:</b> the underlying JSON store removes a
- *   key when it is set to null, so {@link #getChanges()} cannot emit an explicit
- *   JSON <code>null</code>. Clearing a Graph property to null is not supported
- *   through change tracking; set it to an empty value or PATCH directly.</p>
+ *   Base class for all Graph model objects. The class tracks which keys have
+ *   been set since it was loaded so that update operations can execute PATCH
+ *   commands for the changed properties.
  *
  ******************************************************************************/
 
@@ -56,7 +46,7 @@ public class Node {
   //**************************************************************************
   //** getID
   //**************************************************************************
-  /** Returns the Graph <code>id</code>, or null for a new object not yet saved.
+  /** Returns the Graph id, or null for a new object not yet saved.
    */
     public String getID(){
         JSONValue v = json.get("id");
@@ -110,8 +100,11 @@ public class Node {
   //**************************************************************************
   //** set
   //**************************************************************************
-  /** Sets a property and records the key as dirty so it is included in the next
-   *  {@link #getChanges()} PATCH body.
+  /** Sets a property and records the key as dirty so it is included in the
+   *  next PATCH request. Setting a property to null (or an empty string)
+   *  clears it. The underlying JSON store removes a key when it is set to
+   *  null, so getChanges() emits an explicit JSON <code>null</code> for dirty
+   *  keys that no longer have a value, and Graph clears the property on PATCH.
    */
     public void set(String key, Object val){
         json.set(key, val);
@@ -122,9 +115,9 @@ public class Node {
   //**************************************************************************
   //** markDirty
   //**************************************************************************
-  /** Marks a top-level key dirty without changing its value. Used by subclasses
-   *  that mutate a nested object in place (e.g. an <code>CalendarEvent</code> editing
-   *  its <code>start</code>) so the whole property is re-sent on PATCH.
+  /** Marks a top-level key dirty without changing its value. Used by
+   *  subclasses that mutate a nested object in place (e.g. CalendarEvent
+   *  editing its start value) so the whole property is re-sent on PATCH.
    */
     protected void markDirty(String key){
         dirty.add(key);
@@ -151,7 +144,8 @@ public class Node {
         JSONObject changes = new JSONObject();
         for (String key : dirty){
             JSONValue v = json.get(key);
-            if (!v.isNull()) changes.set(key, v);
+            if (v.isNull()) changes.set(key, JSON_NULL);
+            else changes.set(key, v);
         }
         return changes;
     }
@@ -231,11 +225,25 @@ public class Node {
    *  would otherwise read as millions of milliseconds, shifting the time by hours.
    *  Returns null if the string is null or cannot be parsed.
    */
-    public static javaxt.utils.Date parseDate(String s){
+    protected static javaxt.utils.Date parseDate(String s){
         if (s==null) return null;
         try{ return new javaxt.utils.Date(s.replaceAll("\\.(\\d{3})\\d+", ".$1")); }
         catch(Exception e){ return null; }
     }
+
+
+  //**************************************************************************
+  //** JSON_NULL
+  //**************************************************************************
+  /** Placeholder for an explicit JSON null in {@link #getChanges()}. JSONObject
+   *  removes a key when it is set to null, but it writes "null" for any value
+   *  that equals null (same idea as org.json's JSONObject.NULL).
+   */
+    private static final Object JSON_NULL = new Object(){
+        public boolean equals(Object o){ return o==null || o==this; }
+        public int hashCode(){ return 0; }
+        public String toString(){ return "null"; }
+    };
 
 
   //**************************************************************************
