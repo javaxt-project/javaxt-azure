@@ -6,11 +6,7 @@ import javaxt.json.*;
 //**  Email
 //******************************************************************************
 /**
- *   Represents a Microsoft Graph mail message. Exposes Graph-native property
- *   access (via {@link Node}/{@link Item}) alongside typed accessors and the mail
- *   operations (send, reply, forward, move, delete, attachments). A new outgoing
- *   message is built with the no-arg constructor and passed to
- *   {@link User#sendMail} or {@link User#createDraft}:
+ *   Used to represent an email. Example:
  *   <pre>
  *   Email m = new Email();
  *   m.setSubject("Appointment reminder");
@@ -271,6 +267,22 @@ public class Email extends Item {
     public void send() throws GraphException {
         requirePath();
         conn.post(resourcePath + "/send", null);
+    }
+
+
+  //**************************************************************************
+  //** save
+  //**************************************************************************
+  /** Saves the pending changes of a message (e.g. to edit the body or
+   *  recipients of a draft). Does nothing if nothing changed.
+   */
+    public void save() throws GraphException {
+        requirePath();
+        JSONObject changes = writableChanges();
+        if (changes.keySet().isEmpty()) return;
+        JSONObject server = conn.patch(resourcePath, changes);
+        if (server!=null && !server.get("id").isNull()) replaceJson(server);
+        else resetChanges();
     }
 
 
