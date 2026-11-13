@@ -173,17 +173,83 @@ public abstract class Item extends Node {
   //**************************************************************************
   //** addFileAttachment
   //**************************************************************************
-  /** Adds an inline file attachment (&le; 3 MB). Throws for larger payloads,
-   *  which require an upload session (out of scope).
+  /** Adds a file attachment. Files up to 3 MB are posted in a single request
+   *  (base64 contentBytes). Larger files (up to Graph's 150 MB limit) are
+   *  uploaded in chunks with an upload session (see uploadAttachment).
+   *  @return The attachment. For an upload session, Graph doesn't return the
+   *  attachment, so only the name, content type and size are set.
    */
     public Attachment addFileAttachment(String name, String contentType, byte[] bytes) throws GraphException {
         requirePath();
         if (bytes!=null && bytes.length > Attachment.MAX_INLINE_BYTES){
-            throw new GraphException("Attachment '" + name + "' is " + bytes.length +
-                " bytes; inline attachments are limited to " + Attachment.MAX_INLINE_BYTES +
-                " bytes (use an upload session for larger files)");
+            return uploadAttachment(name, contentType, bytes);
         }
         JSONObject server = conn.post(resourcePath + "/attachments", Attachment.file(name, contentType, bytes).toJson());
+        return new Attachment(server);
+    }
+
+
+  //**************************************************************************
+  //** uploadAttachment
+  //**************************************************************************
+  /** Uploads a large file attachment (more than 3 MB, up to 150 MB) with an
+   *  upload session: POST .../attachments/createUploadSession returns a
+   *  pre-authenticated upload URL, and the file is PUT to it in chunks with
+   *  a Content-Range header. Chunks must be multiples of 320 KiB (except the
+   *  last) and at most 60 MiB; 10 x 320 KiB (3.125 MiB) is used. The upload
+   *  URL must be called without an Authorization header.
+   */
+    private Attachment uploadAttachment(String name, String contentType, byte[] bytes) throws GraphException {
+        JSONObject item = new JSONObject();
+        item.set("attachmentType", "file");
+        item.set("name", name);
+        item.set("size", bytes.length);
+        if (contentType!=null) item.set("contentType", contentType);
+        JSONObject payload = new JSONObject();
+        payload.set("AttachmentItem", item);
+
+        JSONObject session = conn.post(resourcePath + "/attachments/createUploadSession", payload);
+        String uploadUrl = session.get("uploadUrl").isNull() ? null : session.get("uploadUrl").toString();
+        if (uploadUrl==null) throw new GraphException("Graph did not return an upload URL for '" + name + "'");
+
+        final int chunkSize = 10 * 320 * 1024;
+        for (int start=0; start<bytes.length; start+=chunkSize){
+            int end = Math.min(bytes.length, start + chunkSize);
+            java.util.Map<String, String> headers = new java.util.LinkedHashMap<>();
+            headers.put("Content-Range", "bytes " + start + "-" + (end-1) + "/" + bytes.length);
+            headers.put("Content-Type", "application/octet-stream");
+            Connection.Response response = conn.send("PUT", uploadUrl, headers,
+                java.util.Arrays.copyOfRange(bytes, start, end));
+            int status = response.getStatus();
+            if (status<200 || status>=300){
+                try{ conn.send("DELETE", uploadUrl, null, null); }catch(Exception e){} //cancel the session
+                throw new GraphException(response);
+            }
+        }
+
+        JSONObject json = new JSONObject();
+        json.set("@odata.type", "#microsoft.graph.fileAttachment");
+        json.set("name", name);
+        json.set("size", bytes.length);
+        if (contentType!=null) json.set("contentType", contentType);
+        return new Attachment(json);
+    }
+
+
+  //**************************************************************************
+  //** addInlineAttachment
+  //**************************************************************************
+  /** Adds an inline file attachment (&le; 3 MB), e.g. an image referenced
+   *  from the HTML body as &lt;img src="cid:contentId"&gt;.
+   */
+    public Attachment addInlineAttachment(String name, String contentType, byte[] bytes, String contentId) throws GraphException {
+        requirePath();
+        if (bytes!=null && bytes.length > Attachment.MAX_INLINE_BYTES){
+            throw new GraphException("Attachment '" + name + "' is " + bytes.length +
+                " bytes; inline attachments are limited to " + Attachment.MAX_INLINE_BYTES + " bytes");
+        }
+        JSONObject server = conn.post(resourcePath + "/attachments",
+            Attachment.inline(name, contentType, bytes, contentId).toJson());
         return new Attachment(server);
     }
 
