@@ -6,11 +6,7 @@ import javaxt.json.JSONObject;
 //**  Attachment
 //******************************************************************************
 /**
- *   Thin wrapper over a Graph attachment (<code>fileAttachment</code>,
- *   <code>itemAttachment</code> or <code>referenceAttachment</code>). For file
- *   attachments retrieved with their <code>contentBytes</code>, the decoded
- *   content is available via {@link #getContentBytes()}; larger items are fetched
- *   separately through {@link Email#getAttachmentContent(String)}.
+ *   Used to manage file and inline attachments.
  *
  ******************************************************************************/
 
@@ -45,6 +41,22 @@ public class Attachment {
         if (contentType!=null) j.set("contentType", contentType);
         if (bytes!=null) j.set("contentBytes", Base64.getEncoder().encodeToString(bytes));
         return new Attachment(j);
+    }
+
+
+  //**************************************************************************
+  //** inline
+  //**************************************************************************
+  /** Builds an inline file attachment payload (e.g. an image referenced from
+   *  an HTML body as &lt;img src="cid:..."&gt;).
+   *  @param contentId The Content-ID used in the body, without the "cid:"
+   *  prefix or angle brackets.
+   */
+    public static Attachment inline(String name, String contentType, byte[] bytes, String contentId){
+        Attachment a = file(name, contentType, bytes);
+        a.json.set("isInline", true);
+        if (contentId!=null) a.json.set("contentId", contentId);
+        return a;
     }
 
 
