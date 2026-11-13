@@ -236,7 +236,7 @@ public class Connection {
   //**************************************************************************
   //** setMaxRetries
   //**************************************************************************
-  /** Sets the maximum number of retries on transient errors (429/503/504).
+  /** Sets the maximum number of retries on transient errors (429/502/503/504).
    */
     public void setMaxRetries(int maxRetries){
         this.maxRetries = Math.max(0, maxRetries);
@@ -310,7 +310,7 @@ public class Connection {
   //** execute
   //**************************************************************************
   /** Executes an arbitrary request with optional extra headers. Any 2xx status
-   *  is success; 429/503/504 are retried (honoring <code>Retry-After</code>)
+   *  is success; 429/502/503/504 are retried (honoring <code>Retry-After</code>)
    *  with exponential backoff; a 401 refreshes the token and retries once. A
    *  GraphException carrying the status, Graph error code and request-id is
    *  thrown on non-transient failures or once retries are exhausted.
@@ -319,10 +319,10 @@ public class Connection {
         String fullURL = resolve(url);
         byte[] body = (payload==null) ? null : payload.toString().getBytes(UTF_8);
 
-      //POST is not idempotent: a 503/504 may arrive after the server already
+      //POST is not idempotent: a 502/503/504 may arrive after the server already
       //processed the request, so retrying could double-create. Only retry POST on
       //429 (throttled requests are rejected unprocessed). GET/PATCH/DELETE are
-      //idempotent and safe to retry on 503/504 as well.
+      //idempotent and safe to retry on 502/503/504 as well.
         boolean idempotent = !"POST".equalsIgnoreCase(method);
 
         int attempt = 0;
@@ -336,7 +336,7 @@ public class Connection {
             if (status>=200 && status<300){
                 return response;
             }
-            else if ((status==429 || (idempotent && (status==503 || status==504))) && attempt<maxRetries){
+            else if ((status==429 || (idempotent && (status==502 || status==503 || status==504))) && attempt<maxRetries){
                 sleep(retryWaitMillis(response, attempt));
                 attempt++;
             }
